@@ -6,7 +6,6 @@ import {
 import  { Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
 
 
@@ -29,9 +28,45 @@ const COUNTRY_FLAGS: Record<string, string> = {
 const getCountryFlag = (country: string) =>
   COUNTRY_FLAGS[country] ?? '🌍';
 
-export default function IDVerificationScreen({ navigation }: any) {
+export default function IDVerificationScreen({ navigation, route }: any) {
    const rotateAnim = useRef(new Animated.Value(0)).current;
-  const { booking, setBooking } = useBooking();
+const bookingData = route?.params?.bookingData;
+let guestData = route?.params?.guestData;
+let roomData = route?.params?.roomData;
+
+if (bookingData && !guestData) {
+  guestData = {
+    full_name: bookingData.guest?.fullName,
+    mobile: bookingData.guest?.mobile,
+    email: bookingData.guest?.email,
+    nationality: bookingData.guest?.nationality,
+    id_type: bookingData.guest?.idType,
+    id_number: bookingData.guest?.idNumber,
+  };
+  roomData = {
+    roomType: bookingData.roomType,
+    roomNo: bookingData.roomNo,
+    roomPrice: bookingData.roomPrice,
+    nights: bookingData.stay?.nights,
+    checkIn: bookingData.stay?.checkIn,
+    checkOut: bookingData.stay?.checkOut,
+  };
+}
+
+if (!guestData) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Text>No booking data found</Text>
+    </View>
+  );
+}
+const guest = guestData;
   const { t } = useTranslation();
 const ID_OPTIONS: Record<
   string,
@@ -66,35 +101,32 @@ const ID_OPTIONS: Record<
     { label: t('drivingLicense'), icon: 'car' },
   ],
 };
-const [selectedId, setSelectedId] = useState(
-  booking.guest.idType || 'Passport'
-);
+const [selectedId, setSelectedId] = useState(guest.idType ||  guest.id_type || 'Passport');
 
 const [scanned, setScanned] = useState(false);
 
 const [isScanning, setIsScanning] = useState(false);
 
 const handleScan = () => {
-  setScanned(false); 
+  setScanned(false);
   setIsScanning(true);
 
   setTimeout(() => {
-    setBooking({
-      ...booking,
-      guest: {
-        ...booking.guest,
-        idType: selectedId,
-      },
-    });
-
     setScanned(true);
     setIsScanning(false);
   }, 2000);
 };
 
 const handleNext = () => {
-
-  navigation.navigate('BookingInformation');
+  navigation.navigate(
+    'BookingInformation',
+    {
+      guestData,
+      roomData,
+      bookingData,
+      verifiedIdType: selectedId,
+    }
+  );
 };
 useEffect(() => {
   if (isScanning) {
@@ -161,14 +193,14 @@ const verifiedOnText = t('verifiedOn', {
   <Ionicons
     name="scan"
     size={90}
-    color="#5B4BDB"
+    color="#1A1A4E"
   />
 </Animated.View>
 
 <Text
     style={{
         marginTop:12,
-        color:'#5B4BDB',
+        color:'#1A1A4E',
         fontWeight:'600',
     }}
 >
@@ -184,8 +216,8 @@ const verifiedOnText = t('verifiedOn', {
             <View style={styles.scannedCard}>
               <View style={styles.flagRow}>
                 <View style={styles.flagBox}>
-                  <Text style={styles.flagEmoji}>{getCountryFlag(booking.guest.nationality)}</Text>
-                  <Text style={styles.flagText}>{(booking.guest.nationality || 'Unknown').toUpperCase()}</Text></View>
+                  <Text style={styles.flagEmoji}>{getCountryFlag(guest.nationality)}</Text>
+                  <Text style={styles.flagText}>{(guest.nationality || 'Unknown').toUpperCase()}</Text></View>
                 <View style={styles.successBadge}>
                   <Ionicons name="checkmark-circle" size={34} color="#35C759" />
                 </View>
@@ -196,17 +228,20 @@ const verifiedOnText = t('verifiedOn', {
                 </View>
                 <View style={styles.idInfo}>
   <Text style={styles.idName}>
-    {booking.guest.fullName || t('notAvailable')}
+    {guest.full_name || guest.fullName || t('notAvailable')}
   </Text>
 
   <Text style={styles.idText}>
-  {booking.guest.idNumber
-    ? booking.guest.idNumber.replace(/.(?=.{4})/g, '*')
-    : t('notAvailable')}
+  {
+  (guest.idNumber || guest.id_number)
+    ? (guest.idNumber || guest.id_number)
+        .replace(/.(?=.{4})/g, '*')
+    : t('notAvailable')
+}
 </Text>
 
   <Text style={styles.idText}>
-    {booking.guest.nationality || t('notAvailable')}
+    {guest.nationality || t('notAvailable')}
   </Text>
 
   <Text style={styles.idText}>
@@ -231,7 +266,7 @@ const verifiedOnText = t('verifiedOn', {
             </View>
           ) : (
             <View style={styles.scanPlaceholder}>
-              <Ionicons name="scan" size={80} color="#5B4BDB" />
+              <Ionicons name="scan" size={80} color="#1A1A4E" />
               <Text style={styles.scanText}>{placeYourIdText}</Text>
             </View>
           )}
@@ -240,7 +275,7 @@ const verifiedOnText = t('verifiedOn', {
         {/* ID Type Tabs */}
         <View style={styles.idTypeRow}>
           {(
-  ID_OPTIONS[booking.guest.nationality] ??
+  ID_OPTIONS[guest.nationality] ??
   ID_OPTIONS['India']
 ).map((type) => (
             <TouchableOpacity
@@ -254,23 +289,15 @@ const verifiedOnText = t('verifiedOn', {
     opacity: 0.5,
   },
 ]}
-              onPress={() => {
-                setScanned(false);
-  setSelectedId(type.label);
-
-  setBooking({
-    ...booking,
-    guest: {
-      ...booking.guest,
-      idType: type.label,
-    },
-  });
+onPress={() => {
+ setScanned(false);
+ setSelectedId(type.label);
 }}
             >
               <Ionicons
                 name={type.icon as any}
                 size={18}
-                color={selectedId === type.label ? '#5B4BDB' : '#888'}
+                color={selectedId === type.label ? '#1A1A4E' : '#888'}
               />
               <Text style={[styles.idTypeText, selectedId === type.label && styles.idTypeTextActive]}>
                 {type.label}
@@ -363,19 +390,19 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1, borderColor: '#E0E0EC',
     backgroundColor: '#fff',
   },
-  idTypeBtnActive: { borderColor: '#5B4BDB', backgroundColor: '#F0EEFF' },
+  idTypeBtnActive: { borderColor: '#1A1A4E', backgroundColor: '#F0EEFF' },
   idTypeText: { fontSize: 13, color: '#888', fontWeight: '500' },
-  idTypeTextActive: { color: '#5B4BDB', fontWeight: '700' },
+  idTypeTextActive: { color: '#1A1A4E', fontWeight: '700' },
   footer: {
     flexDirection: 'row', padding: 16,
     backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E8E8F0', gap: 8,
   },
   backButton: {
     flex: 1, height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 14 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 14 },
   scanAgainButton: {
     flex: 1.5, height: 50, borderRadius: 10,
     borderWidth: 2, borderColor: '#888',
@@ -384,7 +411,7 @@ const styles = StyleSheet.create({
   scanAgainText: { color: '#888', fontWeight: '700', fontSize: 13 },
   nextButton: {
     flex: 1.5, height: 50, borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
   nextButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },

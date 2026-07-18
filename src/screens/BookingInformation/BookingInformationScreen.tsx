@@ -5,10 +5,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
-export default function BookingInformationScreen({ navigation }: any) {
-  const { booking } = useBooking();
+export default function BookingInformationScreen({ navigation,route, }: any) {
+  const { guestData,roomData, bookingData, verifiedIdType } = route.params;
+
+const guest = guestData;
   const { t } = useTranslation();
   const [activeTab, setActiveTab] =useState<'bookingId' | 'mobile' | 'email'>('bookingId');
 
@@ -22,20 +23,12 @@ export default function BookingInformationScreen({ navigation }: any) {
 ];
 
   const handleNext = () => {
-
-  // if (!booking.bookingId) {
-  //   return;
-  // }
-
-  // const existingBooking = findBooking(
-  //   booking.bookingId
-  // );
-
-  // if (!existingBooking) {
-  //   addBooking(booking);
-  // }
-
-  navigation.navigate('Payment');
+  navigation.navigate('Payment', {
+    guestData,
+    roomData,
+    bookingData,
+    verifiedIdType,
+  });
 };
   return (
     <SafeAreaView style={styles.container}>
@@ -83,10 +76,10 @@ export default function BookingInformationScreen({ navigation }: any) {
   selectTextOnFocus={false}
   value={
     activeTab === 'bookingId'
-      ? booking.bookingId || t('notAvailable')
+      ? 'WALK-IN'
       : activeTab === 'mobile'
-      ? booking.guest.mobile || t('notAvailable')
-      : booking.guest.email || t('notAvailable')
+      ? guest.mobile || t('notAvailable')
+: guest.email || t('notAvailable')
   }
   placeholderTextColor="#aaa"
 />
@@ -105,21 +98,21 @@ export default function BookingInformationScreen({ navigation }: any) {
   <Ionicons
     name="qr-code"
     size={100}
-    color="#5B4BDB"
+    color="#1A1A4E"
   />
 
-  {!!booking.bookingId && (
+
     <Text
       style={{
         marginTop: 10,
         fontWeight: '700',
-        color: '#5B4BDB',
+        color: '#1A1A4E',
         fontSize: 16,
       }}
     >
-      {booking.bookingId}
+      WALK-IN
     </Text>
-  )}
+  
 </View>
           <Text style={styles.qrHint}>
   {t('scanBookingQrCode')}
@@ -168,7 +161,7 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 13,
     alignItems: 'center',
   },
-  tabActive: { backgroundColor: '#5B4BDB' },
+  tabActive: { backgroundColor: '#1A1A4E' },
   tabText: { color: '#888', fontWeight: '600', fontSize: 13 },
   tabTextActive: { color: '#fff' },
   inputSection: { marginBottom: 24 },
@@ -200,13 +193,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     flex: 1, height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   nextButton: {
     flex: 2, height: 50, borderRadius: 10,
-    backgroundColor: '#5B4BDB', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#1A1A4E', justifyContent: 'center', alignItems: 'center',
   },
   nextButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

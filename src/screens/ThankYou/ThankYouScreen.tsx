@@ -5,23 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking, Booking } from '../../context/BookingContext';
-import { useVisitor } from '../../context/VisitorContext';
 import { useNeedHelp } from '../../context/NeedHelpContext';
 import { useServiceRequest } from '../../context/ServiceRequestContext';
-import { useRoomExtension } from '../../context/RoomExtensionContext';
 import useTranslation from '../../hooks/useTranslation';
 const AUTO_RETURN_SECONDS = 12;
-
-const emptyBooking: Booking = {
-  bookingId: '',
-  roomType: '',
-  roomPrice: 0,
-  roomNo: '',
-  guest: { fullName: '', mobile: '', email: '', nationality: '', idType: '', idNumber: '' },
-  stay: { checkIn: '', checkOut: '', nights: 1 },
-  payment: { amount: 0, method: '', status: false },
-};
 
 interface ThankYouParams {
   title?: string;
@@ -34,17 +21,22 @@ interface ThankYouParams {
   extraInfo?: string;
   showRating?: boolean;
   clearBooking?: boolean;
+
+  bookingData?: any;
+  verifiedIdType?: string;
+  paymentMethod?: string;
+  paymentAmount?: number;
+  keyType?: string;
 }
 
 export default function ThankYouScreen({ navigation, route }: any) {
-  const { booking, setBooking } = useBooking();
-  const { resetVisitor } = useVisitor();
   const { resetNeedHelp } = useNeedHelp();
   const { resetServiceRequest } = useServiceRequest();
-  const { resetRoomExtension } = useRoomExtension();
   const { t } = useTranslation();
   const params: ThankYouParams = route?.params ?? {};
-
+  const bookingData = params.bookingData;
+const guest = bookingData?.guests || {};
+const room = bookingData?.rooms || {};
   // clearBooking=true means this is checkout — wipe current booking state
   // clearBooking=false means check-in/extension — keep bookings[], only optionally reset current
   const clearBooking = params.clearBooking === true;
@@ -55,12 +47,20 @@ const message =
   params.message ??
   t('sessionCompletedSuccessfully');
   const icon: keyof typeof Ionicons.glyphMap = params.icon ?? 'business';
-  const iconColor = params.iconColor ?? '#5B4BDB';
+  const iconColor = params.iconColor ?? '#1A1A4E';
   const showRating = params.showRating !== false;
 
-  const displayBookingId = params.bookingId ?? booking.bookingId;
-  const displayGuestName = params.guestName ?? booking.guest?.fullName;
-  const displayRoomNumber = params.roomNumber ?? booking.roomNo;
+const displayBookingId =
+  params.bookingId ??
+  bookingData?.booking_id;
+
+const displayGuestName =
+  params.guestName ??
+  guest?.full_name;
+
+const displayRoomNumber =
+  params.roomNumber ??
+  room?.room_number;
   const extraInfo = params.extraInfo;
   const [selectedRating, setSelectedRating] = useState(0);
   const ratingLabels = [
@@ -99,14 +99,6 @@ const message =
   const handleHome = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
-
-    // Checkout: clear current booking state (bookings[] was already deleted by CheckoutSummary)
-    setBooking(emptyBooking);
-
-    if (clearBooking) {
-      resetVisitor();
-    }
-    resetRoomExtension();
     resetNeedHelp();
     resetServiceRequest();
 
@@ -137,25 +129,25 @@ const message =
           <View style={styles.infoCard}>
             {!!displayGuestName && (
               <View style={styles.infoRow}>
-                <Ionicons name="person-outline" size={16} color="#5B4BDB" />
+                <Ionicons name="person-outline" size={16} color="#1A1A4E" />
                 <Text style={styles.infoText}>{displayGuestName}</Text>
               </View>
             )}
             {!!displayRoomNumber && (
               <View style={styles.infoRow}>
-                <Ionicons name="bed-outline" size={16} color="#5B4BDB" />
-                <Text style={styles.infoText}>{t('room')}{t('room')}: {displayRoomNumber}</Text>
+                <Ionicons name="bed-outline" size={16} color="#1A1A4E" />
+                <Text style={styles.infoText}>{t('room')}: {displayRoomNumber}</Text>
               </View>
             )}
             {!!displayBookingId && (
               <View style={styles.infoRow}>
-                <Ionicons name="receipt-outline" size={16} color="#5B4BDB" />
+                <Ionicons name="receipt-outline" size={16} color="#1A1A4E" />
                 <Text style={styles.infoText}>{t('bookingId')}: {displayBookingId}</Text>
               </View>
             )}
             {!!extraInfo && (
               <View style={styles.infoRow}>
-                <Ionicons name="information-circle-outline" size={16} color="#5B4BDB" />
+                <Ionicons name="information-circle-outline" size={16} color="#1A1A4E" />
                 <Text style={styles.infoText}>{extraInfo}</Text>
               </View>
             )}
@@ -243,7 +235,7 @@ const styles = StyleSheet.create({
   countdownText: { fontSize: 13, color: '#888' },
   footer: { padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E8E8F0' },
   homeButton: {
-    height: 56, borderRadius: 14, backgroundColor: '#5B4BDB',
+    height: 56, borderRadius: 14, backgroundColor: '#1A1A4E',
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 3,
   },
   homeButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },

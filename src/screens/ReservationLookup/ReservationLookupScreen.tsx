@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useTranslation from '../../hooks/useTranslation';
-import { useBooking } from '../../context/BookingContext';
-
+import { searchBooking } from '../../api/bookingApi';
+import { Ionicons } from '@expo/vector-icons';
 const ReservationLookupScreen = ({
   navigation,
 }: any) => {
@@ -17,20 +17,22 @@ const ReservationLookupScreen = ({
   const [bookingNumber, setBookingNumber] =
     useState('');
 
-const { bookings, findBooking } = useBooking();
-const handleSearch = () => {
-  const booking = findBooking(
-    bookingNumber.trim()
-  );
+const handleSearch = async () => {
+  const query = bookingNumber.trim();
+  if (!query) return;
+  try {
+    const booking = await searchBooking(query);
 
-  if (booking) {
     navigation.navigate(
       'ReservationReview',
       {
-        bookingId: booking.bookingId,
+        bookingId:
+          booking.bookingId,
       }
     );
-  } else {
+  } catch (error) {
+    console.log(error);
+
     navigation.navigate(
       'ReservationNotFound'
     );
@@ -40,6 +42,9 @@ const handleSearch = () => {
   return (
   <SafeAreaView style={styles.safeArea}>
     <View style={styles.header}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <Ionicons name="arrow-back" size={22} color="#fff" />
+      </TouchableOpacity>
       <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>
           {t('reservationLookupHeader')}
@@ -49,6 +54,7 @@ const handleSearch = () => {
           {t('step1Of8')}
         </Text>
       </View>
+      <View style={{ width: 40 }} />
     </View>
 
     <View style={styles.container}>
@@ -111,7 +117,7 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
@@ -124,11 +130,14 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#1A1A4E',
-    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-
+  backBtn: { width: 40, alignItems: 'flex-start' },
   headerCenter: {
+    flex: 1,
     alignItems: 'center',
   },
 

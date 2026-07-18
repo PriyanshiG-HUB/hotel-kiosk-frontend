@@ -14,17 +14,25 @@ import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import useTranslation from '../../hooks/useTranslation';
 
-import {
-  useVisitor,
-  Visitor,
-} from '../../context/VisitorContext';
+export interface Visitor {
+  visitorId: string;
+  fullName: string;
+  mobile: string;
+  purpose: string;
+  hostRoom: string;
+  hostGuest: string;
+  idType: string;
+  idNumber: string;
+  visitDate: string;
+  visitTime: string;
+  status: 'Checked In' | 'Checked Out';
+  checkOutTime?: string;
+}
 
-export default function VisitorPassScreen({ navigation }: any) {
-  const {
-    findVisitorById,
-    findVisitorByName,
-  } = useVisitor();
-const { t } = useTranslation();
+import { getVisitorById, getVisitorByName } from '../../api/visitorApi';
+
+export default function VisitorPassScreen({ navigation, route }: any) {
+  const { t } = useTranslation();
   const [searchType, setSearchType] =
     useState<'id' | 'name'>('id');
 
@@ -32,24 +40,38 @@ const { t } = useTranslation();
     useState('');
 
   const [visitor, setVisitor] =
-    useState<Visitor | null>(null);
+    useState<Visitor | null>(route.params?.visitor || null);
 
-  const handleSearch = () => {
-  const result =
-    searchType === 'id'
-      ? findVisitorById(searchText)
-      : findVisitorByName(searchText);
+  const handleSearch = async () => {
+    const query = searchText.trim();
+    if (!query) return;
 
-  if (!result) {
-    Alert.alert(
-      t('notFound'),
-      t('noVisitorPassFound')
-    );
-    return;
-  }
+    try {
+      let result = null;
+      if (searchType === 'id') {
+        result = await getVisitorById(query);
+      } else {
+        const results = await getVisitorByName(query);
+        result = results && results.length > 0 ? results[0] : null;
+      }
 
-  setVisitor(result);
-};
+      if (!result) {
+        Alert.alert(
+          t('notFound'),
+          t('noVisitorPassFound')
+        );
+        return;
+      }
+
+      setVisitor(result);
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        t('notFound'),
+        t('noVisitorPassFound')
+      );
+    }
+  };
 
   const handlePrint = () => {
     Alert.alert(
@@ -297,7 +319,7 @@ const { t } = useTranslation();
           <Ionicons
             name="print"
             size={18}
-            color="#5B4BDB"
+            color="#1A1A4E"
             style={{ marginRight: 6 }}
           />
 
@@ -313,7 +335,7 @@ const { t } = useTranslation();
           <Ionicons
             name="mail"
             size={18}
-            color="#5B4BDB"
+            color="#1A1A4E"
             style={{ marginRight: 6 }}
           />
 
@@ -329,7 +351,7 @@ const { t } = useTranslation();
               title: t('visitorPassReady'),
               message: t('visitorPassGenerated'),
               icon: 'people',
-              iconColor: '#5B4BDB',
+              iconColor: '#1A1A4E',
               showRating: false,
             })
           }
@@ -417,17 +439,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     borderRadius: 10,
     marginHorizontal: 4,
   },
 
   toggleButtonActive: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
   },
 
   toggleText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
   },
 
@@ -447,7 +469,7 @@ const styles = StyleSheet.create({
 
   searchButton: {
     height: 50,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -588,14 +610,14 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
 
   backButtonText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
   },
 
@@ -603,7 +625,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 52,
     borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useBooking } from '../../context/BookingContext';
 import {
   View,
   Text,
@@ -76,9 +75,10 @@ const validateIdNumber = (
 };
 
 export default function GuestInformationScreen({
-  navigation,
+  navigation,route
 }: any) {
-  const { booking, setBooking } = useBooking();
+  const { roomData } = route.params;
+
   const { t } = useTranslation();
   const nationalityLabels: Record<string, string> = {
   India: t('india'),
@@ -87,30 +87,22 @@ export default function GuestInformationScreen({
   Australia: t('australia'),
   'United Kingdom': t('unitedKingdom'),
 };
-  const [fullName, setFullName] = useState(
-    booking.guest.fullName
-  );
+  const [fullName, setFullName] =
+  useState('');
 
-  const [mobile, setMobile] = useState(
-    booking.guest.mobile
-  );
+const [mobile, setMobile] =
+  useState('');
 
-  const [email, setEmail] = useState(
-    booking.guest.email
-  );
+const [email, setEmail] =
+  useState('');
+const [nationality, setNationality] =
+  useState('India');
 
-  const [nationality, setNationality] = useState(
-    booking.guest.nationality || 'India'
-  );
+const [idType, setIdType] =
+  useState('Passport');
 
-  const [idType, setIdType] = useState(
-    booking.guest.idType || 'Passport'
-  );
-
-  const [idNumber, setIdNumber] = useState(
-    booking.guest.idNumber
-  );
-
+const [idNumber, setIdNumber] =
+  useState('');
   const nameRegex =
     /^[A-Za-z\s.'-]{2,50}$/;
 
@@ -219,19 +211,20 @@ const handleNext = () => {
   }
 
   // ---------- Save Guest ----------
-  setBooking({
-    ...booking,
-    guest: {
-      fullName: fullName.trim(),
-      mobile: mobile.trim(),
-      email: email.trim().toLowerCase(),
-      nationality,
-      idType,
-      idNumber: idNumber.trim().toUpperCase(),
-    },
-  });
+const guestData = {
+  full_name: fullName.trim(),
+  mobile: mobile.trim(),
+  email: email.trim().toLowerCase(),
+  nationality,
+  id_type: idType,
+  id_number: idNumber.trim().toUpperCase(),
+};
 
-  navigation.navigate('IDVerification');
+navigation.navigate('IDVerification', {
+  guestData,
+  roomData,
+});
+
 };
 return (
   <SafeAreaView style={styles.container}>
@@ -601,8 +594,8 @@ const styles = StyleSheet.create({
   },
 
   optionButtonActive: {
-    backgroundColor: '#5B4BDB',
-    borderColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
+    borderColor: '#1A1A4E',
   },
 
   optionText: {
@@ -629,13 +622,13 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   backButtonText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
     fontSize: 15,
   },
@@ -644,7 +637,7 @@ const styles = StyleSheet.create({
     flex: 2,
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },

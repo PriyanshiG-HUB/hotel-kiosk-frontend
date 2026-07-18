@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
+import { getDashboardStats } from '../../api/dashboardApi';
+import DashboardCard from '../../components/DashboardCard/DashboeardCard';
+import StatusCard from '../../components/StatusCard/StatusCard';
 
 const hardwareStatus = [
   { label: 'Internet', icon: 'wifi', status: 'Connected', color: '#35C759' },
@@ -24,18 +26,46 @@ const navItems = [
 
 export default function DashboardScreen({ navigation }: any) {
   const [activeNav, setActiveNav] = useState('Dashboard');
-  const { bookings } = useBooking();
-  const totalBookings = bookings.length;
+  const [stats, setStats] = useState<any>({
+    totalRooms: 0,
+    occupiedRooms: 0,
+    availableRooms: 0,
+    activeBookings: 0,
+    activeVisitors: 0,
+    pendingRequests: 0,
+  });
+  const [loading, setLoading] = useState(true);
   const now = new Date();
   const lastSync = now.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  const fetchStats = async () => {
+    try {
+      const data = await getDashboardStats();
+      setStats(data);
+    } catch (error) {
+      console.log('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#1A1A4E" barStyle="light-content" />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>KIOSK STATUS</Text>
-        <Text style={styles.headerSub}>System Dashboard</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>KIOSK STATUS</Text>
+          <Text style={styles.headerSub}>System Dashboard</Text>
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -43,32 +73,31 @@ export default function DashboardScreen({ navigation }: any) {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Hardware Status</Text>
           <View style={styles.hardwareGrid}>
-            {hardwareStatus.map((item) => (
-              <View key={item.label} style={styles.hardwareItem}>
-                <Ionicons name={item.icon as any} size={28} color={item.color} />
-                <Text style={styles.hwLabel}>{item.label}</Text>
-                <View style={[styles.statusDot, { backgroundColor: item.color }]} />
-                <Text style={[styles.hwStatus, { color: item.color }]}>{item.status}</Text>
-              </View>
+            {hardwareStatus.map((item: any) => (
+              <StatusCard
+                key={item.label}
+                label={item.label}
+                status={item.status}
+                icon={item.icon}
+                color={item.color}
+                style={{ flex: 1, marginHorizontal: 4, paddingVertical: 10, paddingHorizontal: 8 }}
+              />
             ))}
           </View>
         </View>
 
         {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{totalBookings}</Text>
-            <Text style={styles.statLabel}>Active Bookings</Text>
+        {loading ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#1A1A4E" />
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>KSK-01</Text>
-            <Text style={styles.statLabel}>Kiosk ID</Text>
+        ) : (
+          <View style={styles.statsRow}>
+            <DashboardCard label="Active Bookings" value={stats.activeBookings} />
+            <DashboardCard label="Active Visitors" value={stats.activeVisitors} />
+            <DashboardCard label="Available Rooms" value={`${stats.availableRooms}/${stats.totalRooms}`} />
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{lastSync}</Text>
-            <Text style={styles.statLabel}>Last Sync</Text>
-          </View>
-        </View>
+        )}
       </ScrollView>
 
       {/* Bottom Nav Bar */}
@@ -85,7 +114,7 @@ export default function DashboardScreen({ navigation }: any) {
             <Ionicons
               name={item.icon as any}
               size={22}
-              color={activeNav === item.key ? '#5B4BDB' : '#aaa'}
+              color={activeNav === item.key ? '#1A1A4E' : '#aaa'}
             />
             <Text style={[styles.navLabel, activeNav === item.key && styles.navLabelActive]}>
               {item.label}
@@ -101,8 +130,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F7FB' },
   header: {
     backgroundColor: '#1A1A4E',
-    paddingHorizontal: 20, paddingVertical: 16, alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
+  backBtn: { width: 40, alignItems: 'flex-start' },
+  headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 18, letterSpacing: 1 },
   headerSub: { color: '#aaa', fontSize: 12, marginTop: 2 },
   content: { padding: 20 },
@@ -132,5 +166,5 @@ const styles = StyleSheet.create({
   },
   navItem: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   navLabel: { fontSize: 10, color: '#aaa', marginTop: 3 },
-  navLabelActive: { color: '#5B4BDB', fontWeight: '700' },
+  navLabelActive: { color: '#1A1A4E', fontWeight: '700' },
 });

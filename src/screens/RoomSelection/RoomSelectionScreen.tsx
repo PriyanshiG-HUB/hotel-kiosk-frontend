@@ -1,4 +1,3 @@
-import { useBooking } from '../../context/BookingContext';
 import React, { useState } from 'react';
 import {
   View,
@@ -12,11 +11,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import useTranslation from '../../hooks/useTranslation';
+import RoomCard from '../../components/RoomCard/RoomCard';
 
 
 export default function RoomSelectionScreen({ navigation }: any) {
   const [selected, setSelected] = useState<number | null>(null);
-  const { booking,setBooking } = useBooking();
   const { t } = useTranslation();
   const rooms = [
   {
@@ -42,7 +41,7 @@ export default function RoomSelectionScreen({ navigation }: any) {
     name: t('suiteRoom'),
     price: 220,
     available: t('roomsAvailable', { count: 5 }),
-    roomNo: '305',
+    roomNo: '301',
     image:
       'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=300&q=80',
   },
@@ -53,46 +52,26 @@ export default function RoomSelectionScreen({ navigation }: any) {
     const room = rooms.find(r => r.id === selected);
     if (!room) return;
 
-    const bookingId = 'BK' + Math.floor(100000 + Math.random() * 900000);
-
-    const nights = booking.stay?.nights || 1;
+    const nights = 1;
 
 const checkInDate = new Date();
 
-const checkOutDate = new Date(checkInDate);
+const checkOutDate = new Date();
 checkOutDate.setDate(checkOutDate.getDate() + nights);
 
-const checkIn = checkInDate.toLocaleDateString('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
+const roomData = {
+  roomType: room.name,
+  dbRoomType: room.id === 1 ? 'Standard' : room.id === 2 ? 'Deluxe' : 'Suite',
+  roomNo: room.roomNo,
+  roomPrice: room.price,
+  nights,
+  checkIn: checkInDate.toISOString().split('T')[0],
+  checkOut: checkOutDate.toISOString().split('T')[0],
+};
+
+navigation.navigate('GuestInformation', {
+  roomData,
 });
-
-const checkOut = checkOutDate.toLocaleDateString('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-});
-
-    setBooking(prev => ({
-      ...prev,
-      bookingId,
-      roomType: room.name,
-      roomNo: room.roomNo,
-      roomPrice: room.price,
-      stay: {
-        checkIn,
-        checkOut,
-        nights,
-},
-      payment: {
-        amount: room.price * nights,
-        method: prev.payment?.method || '',
-        status: false,
-      },
-    }));
-
-    navigation.navigate('GuestInformation');
   };
 
   return (
@@ -114,51 +93,14 @@ const checkOut = checkOutDate.toLocaleDateString('en-GB', {
         <Text style={styles.sectionTitle}>{t('chooseYourRoomType')}</Text>
 
         <View style={styles.roomRow}>
-          {rooms.map((room) => (
-            <TouchableOpacity
+          {rooms.map((room: any) => (
+            <RoomCard
               key={room.id}
-              style={[styles.roomCard, selected === room.id && styles.roomCardSelected]}
+              room={room}
+              selected={selected === room.id}
               onPress={() => setSelected(room.id)}
-              activeOpacity={0.8}
-            >
-              <Image source={{ uri: room.image }} style={styles.roomImage} />
-              {selected === room.id && (
-                <View style={styles.checkBadge}>
-                  <Ionicons name="checkmark-circle" size={24} color="#5B4BDB" />
-                </View>
-              )}
-              <View style={styles.roomInfo}>
-  <Text
-    style={[
-      styles.roomName,
-      selected === room.id &&
-        styles.roomNameSelected,
-    ]}
-  >
-    {room.name}
-  </Text>
-
-  <Text style={styles.feature}>
-    🛏 {t('twoGuests')}
-  </Text>
-
-  <Text style={styles.feature}>
-    📶 {t('freeWiFi')}
-  </Text>
-
-  <Text style={styles.feature}>
-    🍳 {t('breakfastIncluded')}
-  </Text>
-
-  <Text style={styles.roomPrice}>
-    ${room.price} / {t('night')}
-  </Text>
-
-  <Text style={styles.roomAvail}>
-    {room.available}
-  </Text>
-</View>
-            </TouchableOpacity>
+              t={t}
+            />
           ))}
         </View>
       </ScrollView>
@@ -194,7 +136,7 @@ const styles = StyleSheet.create({
   headerStep: { color: '#aaa', fontSize: 12, marginTop: 2 },
   content: { padding: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#222', marginBottom: 20 },
-  roomRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+  roomRow: { flexDirection: 'column' },
   roomCard: {
   width: '31%',
   minHeight: 280,
@@ -215,7 +157,7 @@ const styles = StyleSheet.create({
   elevation: 6,
 },
   roomCardSelected: {
-  borderColor: '#5B4BDB',
+  borderColor: '#1A1A4E',
   borderWidth: 3,
   backgroundColor: '#F8F6FF',
 },
@@ -231,8 +173,8 @@ const styles = StyleSheet.create({
 },
   roomInfo: { padding: 10 },
   roomName: { fontSize: 18, fontWeight: '700', color: '#222' },
-  roomNameSelected: { color: '#5B4BDB' },
-  roomPrice: { fontSize: 18, color: '#5B4BDB', fontWeight: '800', marginTop: 8 },
+  roomNameSelected: { color: '#1A1A4E' },
+  roomPrice: { fontSize: 18, color: '#1A1A4E', fontWeight: '800', marginTop: 8 },
   roomAvail: { fontSize: 11, color: '#888', marginTop: 2 },
   feature: {
   fontSize: 13,
@@ -249,13 +191,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     flex: 1, height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   nextButton: {
     flex: 2, height: 50, borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
   nextButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },

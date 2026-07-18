@@ -1,5 +1,4 @@
 import React from 'react';
-import { useBooking } from '../../context/BookingContext';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert,
 } from 'react-native';
@@ -8,8 +7,17 @@ import { Ionicons } from '@expo/vector-icons';
 import useTranslation from '../../hooks/useTranslation';
 
 
-export default function RoomConfirmationScreen({ navigation }: any) {
-  const { booking, addBooking} = useBooking();
+export default function RoomConfirmationScreen({ navigation, route }: any) {
+  const {
+  bookingData,
+  verifiedIdType,
+  paymentMethod,
+  paymentAmount,
+  keyType,
+} = route.params || {};
+
+const guest = bookingData?.guests || {};
+const room = bookingData?.rooms || {};
   const { t } = useTranslation();
 
   const paymentMethodNames: Record<string, string> = {
@@ -20,80 +28,102 @@ export default function RoomConfirmationScreen({ navigation }: any) {
     netbanking: t('netBanking'),
     later: t('payLater'),
   };
-  const details = [
-    {
+const details = [
+  {
     key: 'bookingId',
     label: t('bookingId'),
-    value: booking.bookingId || t('notAvailable'),
+    value:
+      bookingData?.booking_id ||
+      t('notAvailable'),
   },
   {
-  key: 'guestName',
-  label: t('guestName'),
-  value: booking.guest.fullName || t('notAvailable'),
-},
-{
-  key: 'roomNumber',
-  label: t('roomNumber'),
-  value: booking.roomNo || t('notAvailable'),
-},
-{
-  key: 'roomType',
-  label: t('roomType'),
-  value: booking.roomType || t('notAvailable'),
-},
-{
-  key: 'checkIn',
-  label: t('checkIn'),
-  value: booking.stay.checkIn || t('notAvailable'),
-},
-{
-  key: 'checkOut',
-  label: t('checkOut'),
-  value: booking.stay.checkOut || t('notAvailable'),
-},
-{
-  key: 'paymentMethod',
-  label: t('paymentMethod'),
-  value:
-    paymentMethodNames[booking.payment.method] ??
-    t('notAvailable'),
-},
+    key: 'guestName',
+    label: t('guestName'),
+    value:
+      guest?.full_name ||
+      t('notAvailable'),
+  },
+  {
+    key: 'roomNumber',
+    label: t('roomNumber'),
+    value:
+      room?.room_number ||
+      t('notAvailable'),
+  },
+  {
+    key: 'roomType',
+    label: t('roomType'),
+    value:
+      room?.room_type ||
+      t('notAvailable'),
+  },
+  {
+    key: 'checkIn',
+    label: t('checkIn'),
+    value:
+      bookingData?.check_in_date ||
+      t('notAvailable'),
+  },
+  {
+    key: 'checkOut',
+    label: t('checkOut'),
+    value:
+      bookingData?.check_out_date ||
+      t('notAvailable'),
+  },
+  {
+    key: 'paymentMethod',
+    label: t('paymentMethod'),
+    value:
+      paymentMethodNames[paymentMethod] ??
+      t('notAvailable'),
+  },
   {
     key: 'paymentStatus',
     label: t('paymentStatus'),
-    value: booking.payment.status ? t('paid') : t('pending'),
+    value: t('paid'),
   },
-   {
-  key: 'totalAmount',
-  label: t('totalAmount'),
-  value: `$${(
-    booking.payment.amount ||
-    booking.roomPrice ||
-    0
-  ).toFixed(2)}`,
-},
+  {
+    key: 'totalAmount',
+    label: t('totalAmount'),
+    value: `₹${Number(
+      paymentAmount || 0
+    ).toFixed(2)}`,
+  },
 ];
 
 const handlePrintKeyCard = () => {
-  if (!booking.bookingId) {
+  if (!bookingData?.booking_id) {
     Alert.alert(
       t('error'),
       t('noBookingInformationAvailable')
     );
     return;
   }
-  addBooking(booking);
 
   navigation.navigate('ThankYou', {
     title: t('keyCardPrinted'),
     message: t('keyCardPrintedMessage'),
     icon: 'key',
-    iconColor: '#5B4BDB',
-    bookingId: booking.bookingId,
-    guestName: booking.guest.fullName,
-    roomNumber: booking.roomNo,
+    iconColor: '#1A1A4E',
+
+    bookingId:
+      bookingData.booking_id,
+
+    guestName:
+      guest.full_name,
+
+    roomNumber:
+      room.room_number,
+
     showRating: true,
     clearBooking: false,
+
+    bookingData,
+    verifiedIdType,
+    paymentMethod,
+    paymentAmount,
+    keyType,
   });
 };
 
@@ -118,8 +148,8 @@ const handlePrintKeyCard = () => {
             <Ionicons name="checkmark" size={60} color="#fff" />
           </View>
           <Text style={styles.successTitle}>{t('yourRoomIsConfirmed')}</Text>
-          {!!booking.bookingId && (
-            <Text style={styles.bookingNumber}> {t('bookingNumber', { id: booking.bookingId })}</Text>
+          {!!bookingData?.booking_id && (
+            <Text style={styles.bookingNumber}> {t('bookingNumber', { id: bookingData.booking_id })}</Text>
           )}
         </View>
 
@@ -130,10 +160,11 @@ const handlePrintKeyCard = () => {
                 <Text style={styles.detailLabel}>{item.label}</Text>
                 <Text
                   style={[
-                    styles.detailValue,
-                    item.key === 'totalAmount' && styles.totalAmount,
-                    item.key === 'paymentStatus' && booking.payment.status && styles.paidStatus,
-                  ]}
+  styles.detailValue,
+  item.key === 'totalAmount' && styles.totalAmount,
+  item.key === 'paymentStatus' &&
+    styles.paidStatus,
+]}
                 >
                   {item.value}
                 </Text>
@@ -190,7 +221,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: { flex: 1, fontSize: 14, color: '#777' },
   detailValue: { flex: 1, textAlign: 'right', fontSize: 14, fontWeight: '600', color: '#222' },
-  totalAmount: { color: '#5B4BDB', fontSize: 16, fontWeight: '800' },
+  totalAmount: { color: '#1A1A4E', fontSize: 16, fontWeight: '800' },
   paidStatus: { color: '#35C759', fontWeight: '700' },
   divider: { height: 1, backgroundColor: '#F0F0F8' },
   footer: {
@@ -200,13 +231,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     flex: 1, height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   keyButton: {
     flex: 2, height: 50, borderRadius: 10,
-    backgroundColor: '#5B4BDB', flexDirection: 'row',
+    backgroundColor: '#1A1A4E', flexDirection: 'row',
     justifyContent: 'center', alignItems: 'center',
   },
   keyButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },

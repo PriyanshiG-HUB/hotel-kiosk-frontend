@@ -9,21 +9,44 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking, Booking } from '../../context/BookingContext';
+export type Booking = {
+  bookingId: string;
+  roomType: string;
+  roomPrice: number;
+  roomNo: string;
+  guest: {
+    fullName: string;
+    mobile: string;
+    email: string;
+    nationality: string;
+    idType: string;
+    idNumber: string;
+  };
+  stay: {
+    checkIn: string;
+    checkOut: string;
+    nights: number;
+  };
+  payment: {
+    amount: number;
+    method: string;
+    status: boolean;
+  };
+  checkedOut?: boolean;
+};
+
+import { getBookingById } from '../../api/bookingApi';
+import { checkoutGuestApi } from '../../api/checkoutApi';
 
 const TAX_RATE = 0.12;
-
-
-
-
 
 type Step = 'search' | 'details' | 'payment';
 
 export default function CheckoutSummaryScreen({ navigation }: any) {
-  const { findBooking, updateBooking } = useBooking();
   const { t } = useTranslation();
   const paymentMethodNames: Record<string, string> = {
   credit: t('creditCard'),
@@ -49,6 +72,7 @@ const paymentMethods: {
   const [bookingIdInput, setBookingIdInput] = useState('');
   const [foundBooking, setFoundBooking] = useState<Booking | null>(null);
   const [selectedMethod, setSelectedMethod] = useState('credit');
+  const [loading, setLoading] = useState(false);
 
   // Bill calculation
   const nights = foundBooking?.stay?.nights ?? 1;
@@ -57,70 +81,81 @@ const paymentMethods: {
   const taxes = Math.round(roomCharges * TAX_RATE);
   const grandTotal = roomCharges + taxes;
 
-  const handleSearch = () => {
-  const trimmed = bookingIdInput.trim();
+  const handleSearch = async () => {
+    const trimmed = bookingIdInput.trim();
 
-  if (!trimmed) {
-    Alert.alert(
-      t('enterBookingId'),
-      t('enterBookingIdMessage')
-    );
-    return;
-  }
+    if (!trimmed) {
+      Alert.alert(
+        t('enterBookingId'),
+        t('enterBookingIdMessage')
+      );
+      return;
+    }
 
-  const result = findBooking(trimmed);
+    setLoading(true);
+    try {
+      const result = await getBookingById(trimmed);
 
-  if (!result) {
-    Alert.alert(
-      t('notFound'),
-      t('bookingNotFound', { id: trimmed })
-    );
-    return;
-  }
+      if (!result) {
+        Alert.alert(
+          t('notFound'),
+          t('bookingNotFound', { id: trimmed })
+        );
+        return;
+      }
 
-  if (result.checkedOut) {
-    Alert.alert(
-      t('error'),
-      t('checkoutAlreadyCompleted')
-    );
-    return;
-  }
+      if (result.checkedOut || result.booking_status === 'completed') {
+        Alert.alert(
+          t('error'),
+          t('checkoutAlreadyCompleted')
+        );
+        return;
+      }
 
-  setFoundBooking(result);
-  setStep('details');
-};
+      setFoundBooking(result);
+      setStep('details');
+    } catch (err: any) {
+      console.log('Search error:', err);
+      Alert.alert(
+        t('notFound'),
+        t('bookingNotFound', { id: trimmed })
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleProceedToPayment = () => {
     setStep('payment');
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!foundBooking) return;
 
-    // Update booking with payment info
-    const updatedBooking: Booking = {
-      ...foundBooking,
-      payment: {
-        ...foundBooking.payment,
-        amount: grandTotal,
-        method: selectedMethod,
-        status: true,
-      },
-      checkedOut: true,
-    };
-    updateBooking(updatedBooking);
+    setLoading(true);
+    try {
+      await checkoutGuestApi(foundBooking.bookingId);
 
-    navigation.navigate('ThankYou', {
-      title: t('checkoutComplete'),
-      message: t('thankYouForStaying'),
-      icon: 'checkmark-circle',
-      iconColor: '#35C759',
-      bookingId: foundBooking.bookingId,
-      guestName: foundBooking.guest.fullName,
-      roomNumber: foundBooking.roomNo,
-      showRating: true,
-      clearBooking: true,
-    });
+      setLoading(false);
+      navigation.navigate('ThankYou', {
+        title: t('checkoutComplete'),
+        message: t('thankYouForStaying'),
+        icon: 'checkmark-circle',
+        iconColor: '#35C759',
+        bookingId: foundBooking.bookingId,
+        guestName: foundBooking.guest.fullName,
+        roomNumber: foundBooking.roomNo,
+        showRating: true,
+        clearBooking: true,
+      });
+    } catch (err: any) {
+      console.log('Checkout error:', err);
+      setLoading(false);
+      Alert.alert(
+        t('error') || 'Error',
+        err.message || t('failedToCheckout') || 'Failed to complete checkout'
+      );
+    }
   };
 
   return (
@@ -150,7 +185,7 @@ const paymentMethods: {
         {step === 'search' && (
           <View>
             <View style={styles.illustrationBox}>
-              <Ionicons name="log-out-outline" size={72} color="#5B4BDB" />
+              <Ionicons name="log-out-outline" size={72} color="#1A1A4E" />
               <Text style={styles.illustrationTitle}>{t('readyToCheckOut')}</Text>
               <Text style={styles.illustrationSub}>
                 {t('enterBookingIdToCheckout')}
@@ -187,7 +222,7 @@ const paymentMethods: {
             <View style={styles.guestCard}>
               <View style={styles.guestIconRow}>
                 <View style={styles.guestIconBox}>
-                  <Ionicons name="person" size={36} color="#5B4BDB" />
+                  <Ionicons name="person" size={36} color="#1A1A4E" />
                 </View>
                 <View style={styles.guestInfo}>
                   <Text style={styles.guestName}>{foundBooking.guest.fullName || '—'}</Text>
@@ -246,7 +281,7 @@ const paymentMethods: {
                   <Ionicons
                     name={method.icon}
                     size={26}
-                    color={selectedMethod === method.id ? '#5B4BDB' : '#888'}
+                    color={selectedMethod === method.id ? '#1A1A4E' : '#888'}
                   />
                   <Text style={[styles.methodLabel, selectedMethod === method.id && styles.methodLabelActive]}>
                     {method.label}
@@ -256,7 +291,7 @@ const paymentMethods: {
             </View>
 
             <View style={styles.selectedMethodBadge}>
-              <Ionicons name="checkmark-circle" size={18} color="#5B4BDB" />
+              <Ionicons name="checkmark-circle" size={18} color="#1A1A4E" />
               <Text style={styles.selectedMethodText}>
                 {t('payingWith')} {paymentMethodNames[selectedMethod] ?? selectedMethod}
               </Text>
@@ -279,11 +314,15 @@ const paymentMethods: {
 
         {step === 'search' && (
           <TouchableOpacity
-            style={[styles.nextButton, !bookingIdInput.trim() && styles.disabledButton]}
+            style={[styles.nextButton, (!bookingIdInput.trim() || loading) && styles.disabledButton]}
             onPress={handleSearch}
-            disabled={!bookingIdInput.trim()}
+            disabled={!bookingIdInput.trim() || loading}
           >
-            <Text style={styles.nextButtonText}>{t('search')}</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.nextButtonText}>{t('search')}</Text>
+            )}
           </TouchableOpacity>
         )}
 
@@ -294,9 +333,19 @@ const paymentMethods: {
         )}
 
         {step === 'payment' && (
-          <TouchableOpacity style={styles.nextButton} onPress={handleCheckout}>
-            <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.nextButtonText}>{t('confirmCheckout')}</Text>
+          <TouchableOpacity 
+            style={[styles.nextButton, loading && styles.disabledButton]} 
+            onPress={handleCheckout}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.nextButtonText}>{t('confirmCheckout')}</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -357,7 +406,7 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     height: 52, borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     flexDirection: 'row',
     justifyContent: 'center', alignItems: 'center',
   },
@@ -402,10 +451,10 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     marginTop: 6,
     borderTopWidth: 2,
-    borderTopColor: '#5B4BDB',
+    borderTopColor: '#1A1A4E',
   },
   totalLabel: { fontSize: 16, fontWeight: '800', color: '#222' },
-  totalValue: { fontSize: 20, fontWeight: '800', color: '#5B4BDB' },
+  totalValue: { fontSize: 20, fontWeight: '800', color: '#1A1A4E' },
 
   amountBanner: {
     backgroundColor: '#1A1A4E',
@@ -424,15 +473,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16, alignItems: 'center',
     borderWidth: 2, borderColor: '#E0E0EC', elevation: 2,
   },
-  methodCardActive: { borderColor: '#5B4BDB', backgroundColor: '#F0EEFF' },
+  methodCardActive: { borderColor: '#1A1A4E', backgroundColor: '#F0EEFF' },
   methodLabel: { fontSize: 11, color: '#888', marginTop: 6, fontWeight: '500', textAlign: 'center' },
-  methodLabelActive: { color: '#5B4BDB', fontWeight: '700' },
+  methodLabelActive: { color: '#1A1A4E', fontWeight: '700' },
   selectedMethodBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#F0EEFF', borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: '#5B4BDB',
+    borderWidth: 1, borderColor: '#1A1A4E',
   },
-  selectedMethodText: { fontSize: 14, color: '#5B4BDB', fontWeight: '600' },
+  selectedMethodText: { fontSize: 14, color: '#1A1A4E', fontWeight: '600' },
 
   footer: {
     flexDirection: 'row', padding: 16,
@@ -441,13 +490,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     flex: 1, height: 52, borderRadius: 12,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   nextButton: {
     flex: 2, height: 52, borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     flexDirection: 'row',
     justifyContent: 'center', alignItems: 'center',
   },

@@ -5,35 +5,36 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking, Booking } from '../../context/BookingContext';
-import { useRoomExtension } from '../../context/RoomExtensionContext';
 import useTranslation from '../../hooks/useTranslation';
+import { searchBooking } from '../../api/bookingApi';
 const NIGHT_OPTIONS = [1, 2, 3, 4, 5];
 const TAX_RATE = 0.12;
 
 function addDays(dateStr: string, days: number): string {
-  const months: Record<string, number> = {
-    Jan: 0,
-    Feb: 1,
-    Mar: 2,
-    Apr: 3,
-    May: 4,
-    Jun: 5,
-    Jul: 6,
-    Aug: 7,
-    Sep: 8,
-    Oct: 9,
-    Nov: 10,
-    Dec: 11,
-  };
+  if (!dateStr) return '';
+  
+  let date: Date;
+  
+  if (dateStr.includes('-')) {
+    const [year, month, day] = dateStr.split('-');
+    date = new Date(Number(year), Number(month) - 1, Number(day));
+  } else {
+    const months: Record<string, number> = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+      Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+    };
+    const parts = dateStr.split(' ');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      date = new Date(Number(year), months[month] ?? 0, Number(day));
+    } else {
+      date = new Date(dateStr);
+    }
+  }
 
-  const [day, month, year] = dateStr.split(' ');
-
-  const date = new Date(
-    Number(year),
-    months[month],
-    Number(day)
-  );
+  if (isNaN(date.getTime())) {
+    date = new Date();
+  }
 
   date.setDate(date.getDate() + days);
 
@@ -47,35 +48,43 @@ function addDays(dateStr: string, days: number): string {
 type Step = 'search' | 'extend';
 
 export default function RoomExtensionScreen({ navigation }: any) {
-  const { findBooking } = useBooking();
-  const { setRoomExtension } = useRoomExtension();
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>('search');
   const [bookingIdInput, setBookingIdInput] = useState('');
-  const [foundBooking, setFoundBooking] = useState<Booking | null>(null);
-  const [selectedNights, setSelectedNights] = useState<number | null>(null);
-
-  const roomPrice = foundBooking?.roomPrice ?? 0;
-  const currentCheckOut = foundBooking?.stay?.checkOut ?? new Date().toLocaleDateString();
+const [foundBooking, setFoundBooking] = useState<any>(null);  
+const [selectedNights, setSelectedNights] = useState<number | null>(null);
+  const roomPrice = Number(foundBooking?.roomPrice || foundBooking?.total_amount || 0);
+  const currentCheckOut = foundBooking?.check_out_date ?? new Date().toLocaleDateString();
   const extraCharge = selectedNights ? selectedNights * roomPrice : 0;
   const taxes = Math.round(extraCharge * TAX_RATE);
   const grandTotal = extraCharge + taxes;
   const newCheckOut = selectedNights ? addDays(currentCheckOut, selectedNights) : currentCheckOut;
 
-  const handleSearch = () => {
-    const trimmed = bookingIdInput.trim();
-    if (!trimmed) {
-      Alert.alert(t('enterBookingId'), t('enterBookingIdMessage'));
-      return;
-    }
-    const result = findBooking(trimmed);
-    if (!result) {
-      Alert.alert(t('notFound'), t('bookingNotFound', { id: trimmed }));
-      return;
-    }
+const handleSearch = async () => {
+  const trimmed = bookingIdInput.trim();
+
+  if (!trimmed) {
+    Alert.alert(
+      t('reservationLookupPlaceholder') || 'Booking Number',
+      t('reservationLookupSubtitle') || 'Enter your booking number to continue'
+    );
+    return;
+  }
+
+  try {
+    const result = await searchBooking(trimmed);
+
     setFoundBooking(result);
     setStep('extend');
-  };
+  } catch {
+    Alert.alert(
+      t('notFound'),
+      t('bookingNotFound', {
+        id: trimmed,
+      })
+    );
+  }
+};
 
   const handleProceed = () => {
     if (!selectedNights) {
@@ -86,9 +95,12 @@ export default function RoomExtensionScreen({ navigation }: any) {
 
     const extensionId = `EXT-${Date.now().toString().slice(-6)}`;
 
-    setRoomExtension({
+    const roomExtension = {
       extensionId,
-      bookingId: foundBooking.bookingId,
+      bookingId: foundBooking.bookingId || foundBooking.booking_id,
+      guestName: foundBooking.guest?.fullName || foundBooking.guests?.full_name || '',
+      roomNumber: foundBooking.roomNo || foundBooking.rooms?.room_number || '',
+      roomType: foundBooking.roomType || foundBooking.rooms?.room_type || '',
       extraNights: selectedNights,
       originalCheckOut: currentCheckOut,
       newCheckOut,
@@ -98,9 +110,9 @@ export default function RoomExtensionScreen({ navigation }: any) {
       grandTotal,
       paymentMethod: '',
       paymentStatus: false,
-    });
+    };
 
-    navigation.navigate('RoomExtensionSummary');
+    navigation.navigate('RoomExtensionSummary', { roomExtension });
   };
 
   return (
@@ -130,20 +142,20 @@ export default function RoomExtensionScreen({ navigation }: any) {
         {step === 'search' && (
           <View>
             <View style={styles.illustrationBox}>
-              <Ionicons name="time-outline" size={72} color="#5B4BDB" />
+              <Ionicons name="time-outline" size={72} color="#1A1A4E" />
               <Text style={styles.illustrationTitle}>{t('extendYourStay')}</Text>
               <Text style={styles.illustrationSub}>{t('extendStayDescription')}</Text>
             </View>
 
             <View style={styles.searchCard}>
-              <Text style={styles.inputLabel}>{t('bookingId')}</Text>
+              <Text style={styles.inputLabel}>{t('reservationLookupPlaceholder') || 'Booking Number'}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={t('bookingIdPlaceholder')}
+                placeholder={t('reservationLookupPlaceholder') || 'Booking Number'}
                 placeholderTextColor="#bbb"
                 value={bookingIdInput}
                 onChangeText={setBookingIdInput}
-                autoCapitalize="characters"
+                keyboardType="phone-pad"
               />
               <TouchableOpacity
                 style={[styles.searchButton, !bookingIdInput.trim() && styles.disabledButton]}
@@ -164,33 +176,33 @@ export default function RoomExtensionScreen({ navigation }: any) {
               <Text style={styles.cardTitle}>{t('currentBooking')}</Text>
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
-                  <Ionicons name="person-outline" size={18} color="#5B4BDB" />
+                  <Ionicons name="person-outline" size={18} color="#1A1A4E" />
                   <Text style={styles.infoLabel}>{t('guest')}</Text>
                   <Text style={styles.infoValue} numberOfLines={1}>{foundBooking.guest?.fullName || '—'}</Text>
                 </View>
                 <View style={styles.infoItem}>
-                  <Ionicons name="bed-outline" size={18} color="#5B4BDB" />
+                  <Ionicons name="bed-outline" size={18} color="#1A1A4E" />
                   <Text style={styles.infoLabel}>{t('room')}</Text>
                   <Text style={styles.infoValue}>{foundBooking.roomNo || '—'}</Text>
                 </View>
                 <View style={styles.infoItem}>
-                  <Ionicons name="home-outline" size={18} color="#5B4BDB" />
+                  <Ionicons name="home-outline" size={18} color="#1A1A4E" />
                   <Text style={styles.infoLabel}>{t('roomType')}</Text>
                   <Text style={styles.infoValue} numberOfLines={1}>{foundBooking.roomType || '—'}</Text>
                 </View>
                 <View style={styles.infoItem}>
-                  <Ionicons name="pricetag-outline" size={18} color="#5B4BDB" />
+                  <Ionicons name="pricetag-outline" size={18} color="#1A1A4E" />
                   <Text style={styles.infoLabel}>{t('rate')}</Text>
-                  <Text style={styles.infoValue}>${roomPrice}/{t('perNight')}</Text>
+                  <Text style={styles.infoValue}>₹{roomPrice}/{t('perNight')}</Text>
                 </View>
               </View>
 
               <View style={styles.dateRow}>
                 <View style={styles.dateBox}>
                   <Text style={styles.dateLabel}>{t('checkInLabel')}</Text>
-                  <Text style={styles.dateValue}>{foundBooking.stay?.checkIn || '—'}</Text>
+                  <Text style={styles.dateValue}>{foundBooking.check_in_date || '—'}</Text>
                 </View>
-                <Ionicons name="arrow-forward" size={20} color="#5B4BDB" />
+                <Ionicons name="arrow-forward" size={20} color="#1A1A4E" />
                 <View style={styles.dateBox}>
                   <Text style={styles.dateLabel}>{t('checkOutLabel')}</Text>
                   <Text style={[styles.dateValue, selectedNights ? styles.updatedDate : null]}>
@@ -226,23 +238,23 @@ export default function RoomExtensionScreen({ navigation }: any) {
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>{t('ratePerNight')}</Text>
-                  <Text style={styles.summaryValue}>${roomPrice.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>₹{roomPrice.toFixed(2)}</Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>{t('roomCharges')}</Text>
-                  <Text style={styles.summaryValue}>${extraCharge.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>₹{extraCharge.toFixed(2)}</Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>{t('taxes')}</Text>
-                  <Text style={styles.summaryValue}>${taxes.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>₹{taxes.toFixed(2)}</Text>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.summaryRow}>
                   <Text style={styles.totalLabel}>{t('grandTotal')}</Text>
-                  <Text style={styles.totalValue}>${grandTotal.toFixed(2)}</Text>
+                  <Text style={styles.totalValue}>₹{grandTotal.toFixed(2)}</Text>
                 </View>
                 <View style={styles.newDateRow}>
-                  <Ionicons name="calendar" size={16} color="#5B4BDB" />
+                  <Ionicons name="calendar" size={16} color="#1A1A4E" />
                   <Text style={styles.newDateText}>
   {t('newCheckOut')}:{' '}
   <Text style={styles.newDateHighlight}>
@@ -323,7 +335,7 @@ const styles = StyleSheet.create({
     fontSize: 15, color: '#222', marginBottom: 16,
   },
   searchButton: {
-    height: 52, borderRadius: 12, backgroundColor: '#5B4BDB',
+    height: 52, borderRadius: 12, backgroundColor: '#1A1A4E',
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
   },
   searchButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
@@ -345,18 +357,18 @@ const styles = StyleSheet.create({
   dateBox: { alignItems: 'center', flex: 1 },
   dateLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
   dateValue: { fontSize: 14, fontWeight: '700', color: '#222' },
-  updatedDate: { color: '#5B4BDB' },
+  updatedDate: { color: '#1A1A4E' },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#222', marginBottom: 14 },
   nightGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, gap: 8 },
   nightCard: {
     flex: 1, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', borderWidth: 2, borderColor: '#E8E8F0', elevation: 2,
   },
-  nightCardActive: { borderColor: '#5B4BDB', backgroundColor: '#F0EEFF' },
+  nightCardActive: { borderColor: '#1A1A4E', backgroundColor: '#F0EEFF' },
   nightNumber: { fontSize: 24, fontWeight: '800', color: '#888' },
-  nightNumberActive: { color: '#5B4BDB' },
+  nightNumberActive: { color: '#1A1A4E' },
   nightLabel: { fontSize: 11, color: '#888', marginTop: 4 },
-  nightLabelActive: { color: '#5B4BDB' },
+  nightLabelActive: { color: '#1A1A4E' },
   summaryCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 20,
     elevation: 3, borderWidth: 1, borderColor: '#E8E8F0',
@@ -367,24 +379,24 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 14, fontWeight: '600', color: '#222' },
   divider: { height: 1, backgroundColor: '#E8E8F0', marginVertical: 8 },
   totalLabel: { fontSize: 16, fontWeight: '800', color: '#222' },
-  totalValue: { fontSize: 20, fontWeight: '800', color: '#5B4BDB' },
+  totalValue: { fontSize: 20, fontWeight: '800', color: '#1A1A4E' },
   newDateRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
     backgroundColor: '#F0EEFF', borderRadius: 10, padding: 12,
   },
   newDateText: { fontSize: 14, color: '#444' },
-  newDateHighlight: { fontWeight: '700', color: '#5B4BDB' },
+  newDateHighlight: { fontWeight: '700', color: '#1A1A4E' },
   footer: {
     flexDirection: 'row', padding: 16, backgroundColor: '#fff',
     borderTopWidth: 1, borderTopColor: '#E8E8F0', gap: 12,
   },
   backButton: {
-    flex: 1, height: 52, borderRadius: 12, borderWidth: 2, borderColor: '#5B4BDB',
+    flex: 1, height: 52, borderRadius: 12, borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   proceedButton: {
-    flex: 2, height: 52, borderRadius: 12, backgroundColor: '#5B4BDB',
+    flex: 2, height: 52, borderRadius: 12, backgroundColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
   proceedButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },

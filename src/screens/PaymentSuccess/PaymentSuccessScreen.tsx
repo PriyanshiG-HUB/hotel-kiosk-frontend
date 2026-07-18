@@ -4,12 +4,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
 
 
-export default function PaymentSuccessScreen({ navigation }: any) {
-  const { booking, bookings, addBooking } = useBooking();
+export default function PaymentSuccessScreen({ navigation, route }: any) {
+  const booking = route.params?.bookingData || {};
   const { t } = useTranslation();
 
 const paymentMethodNames: Record<string, string> = {
@@ -24,14 +23,6 @@ const paymentMethodNames: Record<string, string> = {
     ? `TXN-${booking.bookingId}`
     : 'TXN-000000';
 
-  useEffect(() => {
-    if (!booking.bookingId) return;
-    const alreadyExists = bookings.some(item => item.bookingId === booking.bookingId);
-    if (!alreadyExists) {
-      addBooking(booking);
-    }
-  }, []);
-
   const handlePrintReceipt = () => {
     Alert.alert(t('receipt'), t('receiptPrintedSuccessfully'));
   };
@@ -45,9 +36,13 @@ const paymentMethodNames: Record<string, string> = {
       <StatusBar backgroundColor="#1A1A4E" barStyle="light-content" />
 
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{t('paymentSuccess')}</Text>
         </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.content}>
@@ -84,11 +79,11 @@ const paymentMethodNames: Record<string, string> = {
 
       <View style={styles.actionRow}>
         <TouchableOpacity style={styles.actionBtn} onPress={handlePrintReceipt}>
-          <Ionicons name="print" size={20} color="#5B4BDB" />
+          <Ionicons name="print" size={20} color="#1A1A4E" />
           <Text style={styles.actionBtnText}>{t('printReceipt')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={handleEmailReceipt}>
-          <Ionicons name="mail" size={20} color="#5B4BDB" />
+          <Ionicons name="mail" size={20} color="#1A1A4E" />
           <Text style={styles.actionBtnText}>{t('emailReceipt')}</Text>
         </TouchableOpacity>
       </View>
@@ -124,6 +119,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 14,
   },
+  backBtn: { width: 40, alignItems: 'flex-start' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 1 },
   content: { flex: 1, padding: 20, justifyContent: 'center', alignItems: 'center' },
@@ -158,14 +154,14 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', gap: 8,
     height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     backgroundColor: '#fff', elevation: 2,
   },
-  actionBtnText: { color: '#5B4BDB', fontWeight: '700', fontSize: 13 },
+  actionBtnText: { color: '#1A1A4E', fontWeight: '700', fontSize: 13 },
   footer: { padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E8E8F0' },
   doneButton: {
     height: 54, borderRadius: 10,
-    backgroundColor: '#5B4BDB', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#1A1A4E', justifyContent: 'center', alignItems: 'center',
   },
   doneButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

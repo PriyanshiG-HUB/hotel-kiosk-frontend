@@ -9,14 +9,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useVisitor } from '../../context/VisitorContext';
 import useTranslation from '../../hooks/useTranslation';
 
 export default function VisitorSuccessScreen({
-  navigation,
+  navigation, route
 }: any) {
-  const { visitor } = useVisitor();
-const { t } = useTranslation();
+  const visitor = route.params?.visitor || {};
+  const { t } = useTranslation();
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -79,7 +78,7 @@ const { t } = useTranslation();
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={() =>
-            navigation.navigate('VisitorPass')
+            navigation.navigate('VisitorPass', { visitor })
           }
         >
           <Text style={styles.primaryText}>
@@ -139,7 +138,7 @@ const styles = StyleSheet.create({
   visitorId: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     textAlign: 'center',
     marginTop: 8,
   },
@@ -168,13 +167,13 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   secondaryText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
   },
 
@@ -182,7 +181,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },

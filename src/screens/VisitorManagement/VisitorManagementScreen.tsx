@@ -21,7 +21,7 @@ export default function VisitorManagementScreen({ navigation }: any) {
     title: t('newVisitor'),
     subtitle: t('registerNewVisitor'),
     icon: 'person-add',
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     screen: 'VisitorRegistration',
   },
   {
@@ -69,7 +69,7 @@ export default function VisitorManagementScreen({ navigation }: any) {
   <Ionicons
     name="people-circle"
     size={60}
-    color="#5B4BDB"
+    color="#1A1A4E"
   />
 
   <Text style={styles.welcomeTitle}>
@@ -164,10 +164,10 @@ const styles = StyleSheet.create({
   footer: { padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E8E8F0' },
   backButton: {
     height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   welcomeCard: {
   backgroundColor: '#fff',
   borderRadius: 18,

@@ -42,7 +42,7 @@ export default function ServiceRequestScreen({ navigation }: any) {
     title: t('roomCleaning'),
     description: t('housekeepingTidying'),
     icon: 'sparkles',
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     estimatedTime: t('twentyMinutes'),
   },
   {
@@ -163,9 +163,9 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
 });

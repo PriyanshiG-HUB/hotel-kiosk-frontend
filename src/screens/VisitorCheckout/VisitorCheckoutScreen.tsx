@@ -7,61 +7,82 @@ import {
   StatusBar,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import useTranslation from '../../hooks/useTranslation';
-import { useVisitor } from '../../context/VisitorContext';
+import { getVisitorById, checkoutVisitorApi } from '../../api/visitorApi';
 
 export default function VisitorCheckoutScreen({
   navigation,
 }: any) {
-  const {
-    findVisitorById,
-    checkOutVisitor,
-  } = useVisitor();
 const { t } = useTranslation();
   const [visitorId, setVisitorId] = useState('');
   const [visitor, setVisitor] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
-    const result = findVisitorById(visitorId);
+  const handleSearch = async () => {
+    const query = visitorId.trim();
+    if (!query) return;
 
-    if (!result) {
+    setLoading(true);
+    try {
+      const result = await getVisitorById(query);
+      if (!result) {
+        Alert.alert(
+          t('notFound') || 'Not Found',
+          t('visitorRecordNotFound') || 'Visitor record not found'
+        );
+        setLoading(false);
+        return;
+      }
+      setVisitor(result);
+    } catch (error) {
+      console.log(error);
       Alert.alert(
-        t('notFound'),
-        t('visitorRecordNotFound')
+        t('notFound') || 'Not Found',
+        t('visitorRecordNotFound') || 'Visitor record not found'
       );
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setVisitor(result);
   };
 
-  const handleCheckout = () => {
-  if (!visitor) return;
+  const handleCheckout = async () => {
+    if (!visitor) return;
 
-  const updatedVisitor = {
-    ...visitor,
-    status: 'Checked Out',
-    checkOutTime: new Date().toLocaleTimeString(),
+    setLoading(true);
+    try {
+      await checkoutVisitorApi(visitor.visitorId);
+
+      const updatedVisitor = {
+        ...visitor,
+        status: 'Checked Out',
+        checkOutTime: new Date().toLocaleTimeString(),
+      };
+      setVisitor(updatedVisitor);
+
+      setLoading(false);
+      Alert.alert(
+        t('success') || 'Success',
+        t('visitorCheckedOutSuccessfully') || 'Visitor checked out successfully',
+        [
+          {
+            text: t('ok') || 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    } catch (err: any) {
+      console.log(err);
+      setLoading(false);
+      Alert.alert(
+        t('error') || 'Error',
+        err.message || t('failedToCheckout') || 'Failed to check out visitor'
+      );
+    }
   };
-
-  checkOutVisitor(visitor.visitorId);
-
-  setVisitor(updatedVisitor);
-
-  Alert.alert(
-    t('success'),
-    t('visitorCheckedOutSuccessfully'),
-    [
-      {
-        text: t('ok'),
-        onPress: () => navigation.goBack(),
-      },
-    ]
-  );
-};
 
   return (
     <SafeAreaView style={styles.container}>
@@ -107,12 +128,17 @@ const { t } = useTranslation();
         />
 
         <TouchableOpacity
-          style={styles.searchButton}
+          style={[styles.searchButton, (!visitorId.trim() || loading) && { opacity: 0.5 }]}
           onPress={handleSearch}
+          disabled={!visitorId.trim() || loading}
         >
-          <Text style={styles.searchButtonText}>
-            {t('searchVisitor')}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.searchButtonText}>
+              {t('searchVisitor')}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {visitor && (
@@ -163,14 +189,19 @@ const { t } = useTranslation();
 
             {visitor.status === 'Checked In' && (
               <TouchableOpacity
-                style={styles.checkoutButton}
+                style={[styles.checkoutButton, loading && { opacity: 0.5 }]}
                 onPress={handleCheckout}
+                disabled={loading}
               >
-                <Text
-                  style={styles.checkoutButtonText}
-                >
-                  {t('checkOutVisitor')}
-                </Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    style={styles.checkoutButtonText}
+                  >
+                    {t('checkOutVisitor')}
+                  </Text>
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -253,7 +284,7 @@ const styles = StyleSheet.create({
 
   searchButton: {
     marginTop: 16,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     height: 52,
     borderRadius: 12,
     justifyContent: 'center',
@@ -342,13 +373,13 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   backButtonText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
   },
 });

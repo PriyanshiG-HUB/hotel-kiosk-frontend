@@ -111,11 +111,11 @@ const styles = StyleSheet.create({
   },
 
   active: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
   },
 
   text: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
     fontSize: 14,
   },

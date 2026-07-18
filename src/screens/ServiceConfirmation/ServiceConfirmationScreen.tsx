@@ -48,10 +48,14 @@ export default function ServiceConfirmationScreen({ navigation }: any) {
       <StatusBar backgroundColor="#1A1A4E" barStyle="light-content" />
 
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{t('requestConfirmed')}</Text>
           <Text style={styles.headerSubtitle}>{t('onItsWayToYou')}</Text>
         </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -71,7 +75,7 @@ export default function ServiceConfirmationScreen({ navigation }: any) {
             <View key={row.label}>
               <View style={styles.infoRow}>
                 <View style={styles.infoLeft}>
-                  <Ionicons name={row.icon} size={18} color="#5B4BDB" />
+                  <Ionicons name={row.icon} size={18} color="#1A1A4E" />
                   <Text style={styles.infoLabel}>{row.label}</Text>
                 </View>
                 <Text style={styles.infoValue}>{row.value || t('notAvailable')}</Text>
@@ -83,7 +87,7 @@ export default function ServiceConfirmationScreen({ navigation }: any) {
 
         {!!serviceRequest.notes && (
           <View style={styles.notesCard}>
-            <Ionicons name="document-text-outline" size={18} color="#5B4BDB" />
+            <Ionicons name="document-text-outline" size={18} color="#1A1A4E" />
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.notesLabel}>{t('notes')}</Text>
               <Text style={styles.notesValue}>{serviceRequest.notes}</Text>
@@ -116,6 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  backBtn: { width: 40, alignItems: 'flex-start' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 1 },
   headerSubtitle: { color: '#aaa', fontSize: 12, marginTop: 2 },
@@ -193,7 +198,7 @@ const styles = StyleSheet.create({
   doneButton: {
     height: 54,
     borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

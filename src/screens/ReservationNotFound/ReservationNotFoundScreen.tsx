@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 10,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
 
   helpButtonText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontSize: 16,
     fontWeight: '600',
   },

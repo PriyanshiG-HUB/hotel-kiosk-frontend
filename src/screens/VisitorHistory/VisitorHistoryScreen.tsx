@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,32 @@ import {
   TouchableOpacity,
   StatusBar,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import useTranslation from '../../hooks/useTranslation';
-
-import { useVisitor } from '../../context/VisitorContext';
+import { getVisitors } from '../../api/visitorApi';
 
 export default function VisitorHistoryScreen({ navigation }: any) {
-  const { visitors } = useVisitor();
+  const [visitors, setVisitors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+
+  const fetchVisitors = async () => {
+    try {
+      const data = await getVisitors();
+      setVisitors(data || []);
+    } catch (error) {
+      console.log('Error fetching visitors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVisitors();
+  }, []);
 
   const checkedInCount = visitors.filter(
     visitor => visitor.status === 'Checked In').length;
@@ -174,7 +190,11 @@ export default function VisitorHistoryScreen({ navigation }: any) {
           {t('visitorRecords')}
         </Text>
 
-        {visitors.length === 0 ? (
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 40 }}>
+            <ActivityIndicator size="large" color="#1A1A4E" />
+          </View>
+        ) : visitors.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons
               name="people-circle-outline"
@@ -281,7 +301,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#5B4BDB',
+    color: '#1A1A4E',
   },
 
   statLabel: {
@@ -395,13 +415,13 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   backButtonText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
     fontSize: 15,
   },

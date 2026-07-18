@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, ScrollView,
+  StatusBar, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
+import { createGuest } from '../../api/guestApi';
+import { getRooms, createBooking, getBookingById } from '../../api/bookingApi';
+import { createPayment } from '../../api/paymentApi';
+import PaymentCard from '../../components/PaymentCard/PaymentCard';
 const paymentMethods: {
   id: string;
   label: string;
@@ -20,14 +23,96 @@ const paymentMethods: {
   { id: 'later', label: 'payLater', icon: 'time' },
 ];
 
-export default function PaymentScreen({ navigation }: any) {
-  const { booking, setBooking } = useBooking();
+export default function PaymentScreen({ navigation, route }: any) {
+const { guestData, roomData, bookingData, verifiedIdType } = route.params;
   const { t } = useTranslation();
-  const [selectedMethod, setSelectedMethod] = useState(
-    booking.payment.method || 'credit'
-  );
+  const [selectedMethod, setSelectedMethod] = useState('credit');
+  const [loading, setLoading] = useState(false);
 
-  const totalAmount = booking.payment.amount || booking.roomPrice || 0;
+  const totalAmount =  roomData.roomPrice * roomData.nights;
+
+  const handlePay = async () => {
+    if (bookingData) {
+      navigation.navigate('RoomAssigned', {
+        bookingData,
+        verifiedIdType,
+        paymentMethod: selectedMethod,
+        paymentAmount: totalAmount,
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Create guest
+      const guestResponse = await createGuest({
+        full_name: guestData.full_name,
+        mobile: guestData.mobile,
+        email: guestData.email,
+        nationality: guestData.nationality,
+        id_type: guestData.id_type,
+        id_number: guestData.id_number,
+      });
+      const guest_id = guestResponse[0]?.guest_id || guestResponse.guest_id;
+      if (!guest_id) {
+        throw new Error('Failed to resolve Guest ID');
+      }
+
+      // 2. Fetch rooms to match room type and availability
+      const roomsList = await getRooms();
+      const targetType = roomData.dbRoomType || 'Standard';
+      
+      const selectedRoom = roomsList.find((r: any) => 
+        r.status === 'available' && 
+        r.room_type.toLowerCase() === targetType.toLowerCase()
+      );
+      
+      if (!selectedRoom) {
+        throw new Error(`No available rooms of type "${roomData.roomType}" found`);
+      }
+      const room_id = selectedRoom.room_id;
+
+      // 3. Create booking
+      const createdBooking = await createBooking({
+        guest_id,
+        room_id,
+        check_in: roomData.checkIn,
+        check_out: roomData.checkOut,
+        nights: roomData.nights,
+        total_amount: totalAmount,
+      });
+      if (!createdBooking?.bookingId) {
+        throw new Error('Failed to create booking in database');
+      }
+
+      // Fetch the full populated booking with guests and rooms relations
+      const bookingResponse = await getBookingById(createdBooking.bookingId);
+
+      // 4. Create payment
+      await createPayment({
+        booking_id: bookingResponse.bookingId,
+        amount: totalAmount,
+        payment_method: selectedMethod === 'later' ? 'Later' : selectedMethod.toUpperCase(),
+        payment_status: selectedMethod === 'later' ? 'Pending' : 'Paid',
+        transaction_id: 'TXN-' + Date.now().toString(),
+      });
+
+      setLoading(false);
+      navigation.navigate('RoomAssigned', {
+        bookingData: bookingResponse,
+        verifiedIdType,
+        paymentMethod: selectedMethod,
+        paymentAmount: totalAmount,
+      });
+    } catch (err: any) {
+      console.log('Check-in error:', err);
+      setLoading(false);
+      Alert.alert(
+        t('error') || 'Error',
+        err.message || t('failedToProcessPayment') || 'Failed to process payment'
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -49,58 +134,43 @@ export default function PaymentScreen({ navigation }: any) {
           <Text style={styles.amountLabel}>{t('totalAmount')}</Text>
           <Text style={styles.amountValue}>₹{totalAmount.toFixed(2)}</Text>
           <Text style={styles.roomInfo}>
-            {booking.roomType || t('room')} • {t('room')} {booking.roomNo || '--'}
+            {roomData.roomType}
           </Text>
         </View>
 
         <Text style={styles.sectionLabel}>{t('selectPaymentMethod')}</Text>
 
         <View style={styles.methodGrid}>
-          {paymentMethods.map((method) => (
-            <TouchableOpacity
+          {paymentMethods.map((method: any) => (
+            <PaymentCard
               key={method.id}
-              style={[styles.methodCard, selectedMethod === method.id && styles.methodCardActive]}
-              onPress={() => {
-                setSelectedMethod(method.id);
-                setBooking({
-                  ...booking,
-                  payment: { ...booking.payment, method: method.id },
-                });
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={method.icon}
-                size={26}
-                color={selectedMethod === method.id ? '#5B4BDB' : '#888'}
-              />
-              <Text style={[styles.methodLabel, selectedMethod === method.id && styles.methodLabelActive]}>
-                {t(method.label)}
-              </Text>
-            </TouchableOpacity>
+              method={method}
+              selected={selectedMethod === method.id}
+              onPress={() => setSelectedMethod(method.id)}
+              t={t}
+            />
           ))}
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity 
+          style={[styles.backButton, loading && styles.disabledButton]} 
+          onPress={() => navigation.goBack()}
+          disabled={loading}
+        >
           <Text style={styles.backButtonText}>{t('back')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.payButton}
-          onPress={() => {
-            setBooking({
-              ...booking,
-              payment: {
-                amount: totalAmount,
-                method: selectedMethod,
-                status: true,
-              },
-            });
-            navigation.navigate('RoomAssigned');
-          }}
+          style={[styles.payButton, loading && styles.disabledButton]}
+          onPress={handlePay}
+          disabled={loading}
         >
-          <Text style={styles.payButtonText}>{t('payNow')}</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.payButtonText}>{t('payNow')}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -136,9 +206,9 @@ const styles = StyleSheet.create({
     paddingVertical: 18, alignItems: 'center',
     borderWidth: 2, borderColor: '#E0E0EC', elevation: 2,
   },
-  methodCardActive: { borderColor: '#5B4BDB', backgroundColor: '#F0EEFF' },
+  methodCardActive: { borderColor: '#1A1A4E', backgroundColor: '#F0EEFF' },
   methodLabel: { fontSize: 12, color: '#888', marginTop: 8, fontWeight: '500', textAlign: 'center' },
-  methodLabelActive: { color: '#5B4BDB', fontWeight: '700' },
+  methodLabelActive: { color: '#1A1A4E', fontWeight: '700' },
   footer: {
     flexDirection: 'row', padding: 16,
     backgroundColor: '#fff', borderTopWidth: 1,
@@ -146,13 +216,14 @@ const styles = StyleSheet.create({
   },
   backButton: {
     flex: 1, height: 50, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   payButton: {
     flex: 2, height: 50, borderRadius: 10,
-    backgroundColor: '#5B4BDB', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#1A1A4E', justifyContent: 'center', alignItems: 'center',
   },
   payButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  disabledButton: { opacity: 0.5 },
 });

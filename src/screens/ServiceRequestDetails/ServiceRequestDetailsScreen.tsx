@@ -8,51 +8,121 @@ import {
   StatusBar,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useServiceRequest } from '../../context/ServiceRequestContext';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
+import { createServiceRequest } from '../../api/serviceApi';
+import { getBookingByRoom } from '../../api/bookingApi';
+
 export default function ServiceRequestDetailsScreen({ navigation, route }: any) {
-  const { category } = route.params;
+  const { category, bookingData, roomNo, guestName: paramGuestName } = route.params || {};
   const { setServiceRequest } = useServiceRequest();
-  const { booking } = useBooking();
   const { t } = useTranslation();
-  const [roomNumber, setRoomNumber] = useState(booking.roomNo || '');
-  const [guestName, setGuestName] = useState(booking.guest?.fullName || '');
+  const [loading, setLoading] = useState(false);
+
+  const [roomNumber, setRoomNumber] = useState(bookingData?.roomNo || roomNo || '');
+  const [guestName, setGuestName] = useState(bookingData?.guest?.fullName || paramGuestName || '');
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
 
-  const handleSubmit = () => {
+  const handleRoomNumberBlur = async () => {
+    if (roomNumber.trim() && !guestName.trim()) {
+      try {
+        const b = await getBookingByRoom(roomNumber.trim());
+        if (b && b.guest?.fullName) {
+          setGuestName(b.guest.fullName);
+        }
+      } catch (e) {
+        console.log('Error fetching booking for room:', e);
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!roomNumber.trim() || !guestName.trim()) {
       Alert.alert(t('missingDetails'), t('enterRoomAndName'));
       return;
     }
 
-    const requestId = `SRV-${Date.now().toString().slice(-6)}`;
-    const now = new Date();
-    const requestedAt = now.toLocaleString([], {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    setLoading(true);
+    try {
+      let activeBooking;
+      try {
+        activeBooking = await getBookingByRoom(roomNumber.trim());
+      } catch (e) {
+        setLoading(false);
+        Alert.alert(
+          t('notFound') || 'Not Found',
+          'No active booking found for this room number.'
+        );
+        return;
+      }
 
-    setServiceRequest({
-      requestId,
-      category: category.title,
-      categoryIcon: category.icon,
-      notes: notes.trim(),
-      roomNumber: roomNumber.trim(),
-      guestName: guestName.trim(),
-      requestedAt,
-      estimatedTime: category.estimatedTime,
-      status: 'confirmed',
-    });
+      if (!activeBooking || !activeBooking.guest?.fullName) {
+        setLoading(false);
+        Alert.alert(
+          t('notFound') || 'Not Found',
+          'No active booking found for this room number.'
+        );
+        return;
+      }
 
-    navigation.navigate('ServiceConfirmation');
+      const dbGuestName = activeBooking.guest.fullName.toLowerCase().trim();
+      const inputGuestName = guestName.toLowerCase().trim();
+      if (!dbGuestName.includes(inputGuestName) && !inputGuestName.includes(dbGuestName)) {
+        setLoading(false);
+        Alert.alert(
+          t('error') || 'Error',
+          'Guest name does not match the registered guest for this room.'
+        );
+        return;
+      }
+
+      const resolvedGuestName = activeBooking.guest.fullName;
+
+      await createServiceRequest({
+        room_number: roomNumber.trim(),
+        guest_name: resolvedGuestName,
+        service_type: category.title,
+        description: notes.trim(),
+        quantity: quantity,
+      });
+
+      const requestId = `SRV-${Date.now().toString().slice(-6)}`;
+      const now = new Date();
+      const requestedAt = now.toLocaleString([], {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      setServiceRequest({
+        requestId,
+        category: category.title,
+        categoryIcon: category.icon,
+        notes: notes.trim(),
+        roomNumber: roomNumber.trim(),
+        guestName: resolvedGuestName,
+        requestedAt,
+        estimatedTime: category.estimatedTime,
+        status: 'confirmed',
+      });
+
+      setLoading(false);
+      navigation.navigate('ServiceConfirmation');
+    } catch (err: any) {
+      console.log('Service request error:', err);
+      setLoading(false);
+      Alert.alert(
+        t('error') || 'Error',
+        err.message || t('failedToSubmitRequest') || 'Failed to submit request'
+      );
+    }
   };
 
   return (
@@ -97,14 +167,14 @@ export default function ServiceRequestDetailsScreen({ navigation, route }: any) 
                 style={styles.qtyButton}
                 onPress={() => setQuantity(q => Math.max(1, q - 1))}
               >
-                <Ionicons name="remove" size={22} color="#5B4BDB" />
+                <Ionicons name="remove" size={22} color="#1A1A4E" />
               </TouchableOpacity>
               <Text style={styles.qtyValue}>{quantity}</Text>
               <TouchableOpacity
                 style={styles.qtyButton}
                 onPress={() => setQuantity(q => Math.min(10, q + 1))}
               >
-                <Ionicons name="add" size={22} color="#5B4BDB" />
+                <Ionicons name="add" size={22} color="#1A1A4E" />
               </TouchableOpacity>
             </View>
           </View>
@@ -130,6 +200,7 @@ export default function ServiceRequestDetailsScreen({ navigation, route }: any) 
             placeholderTextColor="#bbb"
             value={roomNumber}
             onChangeText={setRoomNumber}
+            onBlur={handleRoomNumberBlur}
           />
 
           <Text style={styles.label}>{t('additionalNotesOptional')}</Text>
@@ -151,18 +222,26 @@ export default function ServiceRequestDetailsScreen({ navigation, route }: any) 
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={[styles.backButton, loading && styles.disabledButton]}
+          onPress={() => navigation.goBack()}
+          disabled={loading}
+        >
           <Text style={styles.backButtonText}>{t('back')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!roomNumber.trim() || !guestName.trim()) && styles.disabledButton,
+            (!roomNumber.trim() || !guestName.trim() || loading) && styles.disabledButton,
           ]}
           onPress={handleSubmit}
-          disabled={!roomNumber.trim() || !guestName.trim()}
+          disabled={!roomNumber.trim() || !guestName.trim() || loading}
         >
-          <Text style={styles.submitButtonText}>{t('confirmRequest')}</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>{t('confirmRequest')}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -205,7 +284,7 @@ const styles = StyleSheet.create({
   etaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -236,9 +315,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
   },
-  qtyValue: { fontSize: 28, fontWeight: '800', color: '#5B4BDB', minWidth: 40, textAlign: 'center' },
+  qtyValue: { fontSize: 28, fontWeight: '800', color: '#1A1A4E', minWidth: 40, textAlign: 'center' },
   label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 6, marginTop: 12 },
   input: {
     backgroundColor: '#F6F7FB',
@@ -264,16 +343,16 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   submitButton: {
     flex: 2,
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },

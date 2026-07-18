@@ -8,51 +8,119 @@ import {
   StatusBar,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNeedHelp } from '../../context/NeedHelpContext';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
-export default function SelectServiceScreen({ navigation, route }: any) {
-  const { service } = route.params;
-  const { setHelpRequest } = useNeedHelp();
-  const { booking } = useBooking();
-  const { t } = useTranslation();
+import { createHelpRequest } from '../../api/helpApi';
+import { getBookingByRoom } from '../../api/bookingApi';
 
-  const [roomNumber, setRoomNumber] = useState(booking.roomNo || '');
-  const [guestName, setGuestName] = useState(booking.guest?.fullName || '');
+export default function SelectServiceScreen({ navigation, route }: any) {
+  const { service, bookingData, roomNo, guestName: paramGuestName } = route.params || {};
+  const { setHelpRequest } = useNeedHelp();
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
+
+  const [roomNumber, setRoomNumber] = useState(bookingData?.roomNo || roomNo || '');
+  const [guestName, setGuestName] = useState(bookingData?.guest?.fullName || paramGuestName || '');
   const [notes, setNotes] = useState('');
 
-  const handleConfirm = () => {
+  const handleRoomNumberBlur = async () => {
+    if (roomNumber.trim() && !guestName.trim()) {
+      try {
+        const b = await getBookingByRoom(roomNumber.trim());
+        if (b && b.guest?.fullName) {
+          setGuestName(b.guest.fullName);
+        }
+      } catch (e) {
+        console.log('Error fetching booking for room:', e);
+      }
+    }
+  };
+
+  const handleConfirm = async () => {
     if (!roomNumber.trim() || !guestName.trim()) {
       Alert.alert(t('missingDetails'), t('enterRoomAndName'));
       return;
     }
 
-    const requestId = `REQ-${Date.now().toString().slice(-6)}`;
-    const now = new Date();
-    const requestedAt = now.toLocaleString([], {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    setLoading(true);
+    try {
+      let activeBooking;
+      try {
+        activeBooking = await getBookingByRoom(roomNumber.trim());
+      } catch (e) {
+        setLoading(false);
+        Alert.alert(
+          t('notFound') || 'Not Found',
+          'No active booking found for this room number.'
+        );
+        return;
+      }
 
-    setHelpRequest({
-  requestId,
-  service: service.title,
-  serviceIcon: service.icon,
-  roomNumber: roomNumber.trim(),
-  guestName: guestName.trim(),
-  notes: notes.trim(),
-  requestedAt,
-  estimatedTime: service.estimatedTime,
-  status: 'confirmed',
-});
+      if (!activeBooking || !activeBooking.guest?.fullName) {
+        setLoading(false);
+        Alert.alert(
+          t('notFound') || 'Not Found',
+          'No active booking found for this room number.'
+        );
+        return;
+      }
 
-    navigation.navigate('HelpConfirmation');
+      const dbGuestName = activeBooking.guest.fullName.toLowerCase().trim();
+      const inputGuestName = guestName.toLowerCase().trim();
+      if (!dbGuestName.includes(inputGuestName) && !inputGuestName.includes(dbGuestName)) {
+        setLoading(false);
+        Alert.alert(
+          t('error') || 'Error',
+          'Guest name does not match the registered guest for this room.'
+        );
+        return;
+      }
+
+      const resolvedGuestName = activeBooking.guest.fullName;
+
+      await createHelpRequest({
+        room_number: roomNumber.trim(),
+        guest_name: resolvedGuestName,
+        help_type: service.title,
+        notes: notes.trim(),
+      });
+
+      const requestId = `REQ-${Date.now().toString().slice(-6)}`;
+      const now = new Date();
+      const requestedAt = now.toLocaleString([], {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      setHelpRequest({
+        requestId,
+        service: service.title,
+        serviceIcon: service.icon,
+        roomNumber: roomNumber.trim(),
+        guestName: resolvedGuestName,
+        notes: notes.trim(),
+        requestedAt,
+        estimatedTime: service.estimatedTime,
+        status: 'confirmed',
+      });
+
+      setLoading(false);
+      navigation.navigate('HelpConfirmation');
+    } catch (err: any) {
+      console.log('Help request error:', err);
+      setLoading(false);
+      Alert.alert(
+        t('error') || 'Error',
+        err.message || t('failedToSubmitRequest') || 'Failed to submit request'
+      );
+    }
   };
 
   return (
@@ -113,6 +181,7 @@ export default function SelectServiceScreen({ navigation, route }: any) {
             value={roomNumber}
             onChangeText={setRoomNumber}
             keyboardType="default"
+            onBlur={handleRoomNumberBlur}
           />
 
           <Text style={styles.label}>{t('additionalNotesOptional')}</Text>
@@ -130,18 +199,26 @@ export default function SelectServiceScreen({ navigation, route }: any) {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={[styles.backButton, loading && styles.disabledButton]}
+          onPress={() => navigation.goBack()}
+          disabled={loading}
+        >
           <Text style={styles.backButtonText}>{t('back')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.confirmButton,
-            (!roomNumber.trim() || !guestName.trim()) && styles.disabledButton,
+            (!roomNumber.trim() || !guestName.trim() || loading) && styles.disabledButton,
           ]}
           onPress={handleConfirm}
-          disabled={!roomNumber.trim() || !guestName.trim()}
+          disabled={!roomNumber.trim() || !guestName.trim() || loading}
         >
-          <Text style={styles.confirmButtonText}>{t('confirmRequest')}</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.confirmButtonText}>{t('confirmRequest')}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -184,7 +261,7 @@ const styles = StyleSheet.create({
   etaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -236,16 +313,16 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   confirmButton: {
     flex: 2,
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },

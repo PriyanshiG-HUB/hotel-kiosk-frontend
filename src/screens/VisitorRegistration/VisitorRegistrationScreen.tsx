@@ -14,15 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import useTranslation from '../../hooks/useTranslation';
 
-import { useVisitor } from '../../context/VisitorContext';
-import { Booking, useBooking } from '../../context/BookingContext';
-export default function VisitorRegistrationScreen({ navigation }: any) {
-  const { addVisitor } = useVisitor();
+import { registerVisitor } from '../../api/visitorApi';
+import { getBookingByRoom, getBookingByGuestName } from '../../api/bookingApi';
+import { ActivityIndicator } from 'react-native';
+export default function VisitorRegistrationScreen({ navigation ,route}: any) {
 const { t } = useTranslation();
-const {
-  findBookingByRoom,
-  findBookingByGuest,
-} = useBooking();
+const [loading, setLoading] = useState(false);
+
 
   const [visitorName, setVisitorName] = useState('');
 const [mobile, setMobile] = useState('');
@@ -33,7 +31,7 @@ const [searchType, setSearchType] = useState<'room' | 'guest'>('room');
 
 const [searchText, setSearchText] = useState('');
 
-const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+const [selectedBooking, setSelectedBooking] = useState<any>(null);
 const visitDate = new Date().toLocaleDateString();
 
 const visitTime = new Date().toLocaleTimeString([], {
@@ -41,7 +39,7 @@ const visitTime = new Date().toLocaleTimeString([], {
   minute: '2-digit',
 });
 
-const handleSearchHost = () => {
+const handleSearchHost = async () => {
   if (!searchText.trim()) {
   Alert.alert(
     t('required'),
@@ -51,24 +49,32 @@ const handleSearchHost = () => {
   );
   return;
 }
-  let booking;
+  let booking = null;
 
-  if (searchType === 'room') {
-    booking = findBookingByRoom(searchText);
-  } else {
-    booking = findBookingByGuest(searchText);
+  try {
+    if (searchType === 'room') {
+      booking = await getBookingByRoom(searchText.trim());
+    } else {
+      booking = await getBookingByGuestName(searchText.trim());
+    }
+  } catch (error: any) {
+    setSelectedBooking(null);
+    const msg = error.response?.data?.message || error.message || t('noMatchingGuest');
+    Alert.alert(
+      t('notFound'),
+      msg
+    );
+    return;
   }
 
   if (!booking) {
-  setSelectedBooking(null);
-
-  Alert.alert(
-    t('notFound'),
-    t('noMatchingGuest')
-  );
-
-  return;
-}
+    setSelectedBooking(null);
+    Alert.alert(
+      t('notFound'),
+      t('noMatchingGuest')
+    );
+    return;
+  }
 
   setSelectedBooking(booking);
 };
@@ -103,7 +109,7 @@ const canGenerate =
   mobileRegex.test(mobile.trim()) &&
   validateVisitorId(idType, idNumber) &&
   purpose.trim().length >= 3;
-  const handleSave = () => {
+  const handleSave = async () => {
   if (!selectedBooking) {
   Alert.alert(
     t('guestRequired'),
@@ -144,29 +150,28 @@ if (purpose.trim().length < 3) {
   return;
 }
 
-  addVisitor({
-    visitorId: `VIS-${Date.now().toString().slice(-6)}`,
+  setLoading(true);
+  try {
+    const apiResponse = await registerVisitor({
+      full_name: visitorName.trim(),
+      mobile: mobile.trim(),
+      purpose: purpose.trim(),
+      host_room: selectedBooking.roomNo,
+      host_guest: selectedBooking.guest.fullName,
+      id_type: idType,
+      id_number: idNumber.trim(),
+    });
 
-    fullName: visitorName.trim(),
-
-    mobile: mobile.trim(),
-
-    purpose: purpose.trim(),
-
-    hostRoom: selectedBooking.roomNo,
-    hostGuest: selectedBooking.guest.fullName,
-    idType,
-
-    idNumber: idNumber.trim(),
-
-    visitDate,
-
-    visitTime,
-    status: 'Checked In',
-checkOutTime: '',
-  });
-
-  navigation.navigate('VisitorSuccess');
+    setLoading(false);
+    navigation.navigate('VisitorSuccess', { visitor: apiResponse });
+  } catch (err: any) {
+    console.log(err);
+    setLoading(false);
+    Alert.alert(
+      t('error') || 'Error',
+      err.message || t('failedToRegisterVisitor') || 'Failed to register visitor'
+    );
+  }
 };
   
 
@@ -424,7 +429,7 @@ checkOutTime: '',
               <Ionicons
                 name="calendar-outline"
                 size={22}
-                color="#5B4BDB"
+                color="#1A1A4E"
               />
               <Text style={styles.infoTitle}>
                 {t('date')}
@@ -450,23 +455,29 @@ checkOutTime: '',
     </Text>
   </TouchableOpacity>
 
-  <TouchableOpacity
+   <TouchableOpacity
     style={[
       styles.saveButton,
-      !canGenerate && { opacity: 0.5 },
+      (!canGenerate || loading) && { opacity: 0.5 },
     ]}
-    disabled={!canGenerate}
+    disabled={!canGenerate || loading}
     onPress={handleSave}
   >
-    <Ionicons
-      name="person-add"
-      size={18}
-      color="#fff"
-      style={{ marginRight: 8 }}
-    />
-    <Text style={styles.saveButtonText}>
-      {t('generatePass')}
-    </Text>
+    {loading ? (
+      <ActivityIndicator color="#fff" />
+    ) : (
+      <>
+        <Ionicons
+          name="person-add"
+          size={18}
+          color="#fff"
+          style={{ marginRight: 8 }}
+        />
+        <Text style={styles.saveButtonText}>
+          {t('generatePass')}
+        </Text>
+      </>
+    )}
   </TouchableOpacity>
 </View>
 
@@ -565,8 +576,8 @@ const styles = StyleSheet.create({
   },
 
   idButtonActive: {
-    backgroundColor: '#5B4BDB',
-    borderColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
+    borderColor: '#1A1A4E',
   },
 
   idText: {
@@ -622,13 +633,13 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   backButtonText: {
-    color: '#5B4BDB',
+    color: '#1A1A4E',
     fontWeight: '700',
     fontSize: 15,
   },
@@ -637,7 +648,7 @@ const styles = StyleSheet.create({
     flex: 2,
     height: 50,
     borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',

@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   View,
   Text,
@@ -8,30 +7,74 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useTranslation from '../../hooks/useTranslation';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
+import {
+  getBookingById,
+} from '../../api/bookingApi';
 
 const ReservationReviewScreen = ({
   navigation,
   route,
 }: any) => {
-  const { booking, setBooking, findBooking } = useBooking();
   const { t } = useTranslation();
 
   const { bookingId } = route.params;
+  const [reservationData, setReservationData] =
+  useState<any>(null);
 
-const reservationData = findBooking(bookingId);
-if (!reservationData) {
+const [loading, setLoading] =
+  useState(true);
+
+
+  const handleContinue = () => {
+  navigation.navigate('IDVerification', {
+    bookingData: reservationData,
+  });
+};
+
+const loadBooking = async () => {
+  try {
+    const data =
+      await getBookingById(
+        bookingId
+      );
+
+    setReservationData(data);
+  } catch (error) {
+  console.log('Booking Load Error:', error);
   navigation.replace('ReservationNotFound');
+} finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  loadBooking();
+}, [bookingId]);
+
+
+if (loading) {
+  return (
+    <SafeAreaView
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Text>Loading...</Text>
+    </SafeAreaView>
+  );
+}
+
+if (!reservationData) {
   return null;
 }
-  const handleContinue = () => {
-    setBooking(reservationData);
-    navigation.navigate('IDVerification');
-  };
-
   return (
   <SafeAreaView style={styles.container}>
     <StatusBar
@@ -74,7 +117,7 @@ if (!reservationData) {
         <Ionicons
   name="checkmark-circle"
   size={70}
-  color="#5B4BDB"
+  color="#1A1A4E"
 />
 
         <Text style={styles.successTitle}>
@@ -98,7 +141,7 @@ if (!reservationData) {
           </Text>
 
           <Text style={styles.value}>
-            {reservationData.bookingId}
+            {reservationData.booking_id}
           </Text>
         </View>
       </View>
@@ -112,28 +155,28 @@ if (!reservationData) {
         <View style={styles.row}>
           <Text style={styles.label}>{t('name')}</Text>
           <Text style={styles.value}>
-            {reservationData.guest.fullName}
+            {reservationData.guests?.full_name}
           </Text>
         </View>
 
         <View style={styles.row}>
           <Text style={styles.label}>{t('email')}</Text>
           <Text style={styles.value}>
-            {reservationData.guest.email}
+            {reservationData.guests?.email}
           </Text>
         </View>
 
         <View style={styles.row}>
           <Text style={styles.label}>{t('mobile')}</Text>
           <Text style={styles.value}>
-            {reservationData.guest.mobile}
+            {reservationData.guests?.mobile}
           </Text>
         </View>
 
         <View style={styles.row}>
           <Text style={styles.label}>{t('nationality')}</Text>
           <Text style={styles.value}>
-            {reservationData.guest.nationality}
+            {reservationData.guests?.nationality || 'N/A'}
           </Text>
         </View>
       </View>
@@ -147,21 +190,21 @@ if (!reservationData) {
         <View style={styles.row}>
           <Text style={styles.label}>{t('checkIn')}</Text>
           <Text style={styles.value}>
-            {reservationData.stay.checkIn}
+            {reservationData.check_in_date}
           </Text>
         </View>
 
         <View style={styles.row}>
           <Text style={styles.label}>{t('checkOut')}</Text>
           <Text style={styles.value}>
-            {reservationData.stay.checkOut}
+            {reservationData.check_out_date}
           </Text>
         </View>
 
         <View style={styles.row}>
           <Text style={styles.label}>{t('nights')}</Text>
           <Text style={styles.value}>
-            {reservationData.stay.nights}
+            {reservationData.stay?.nights || 'N/A'}
           </Text>
         </View>
       </View>
@@ -175,14 +218,14 @@ if (!reservationData) {
         <View style={styles.row}>
           <Text style={styles.label}>{t('roomType')}</Text>
           <Text style={styles.value}>
-            {reservationData.roomType}
+            {reservationData.rooms?.room_type}
           </Text>
         </View>
 
         <View style={styles.row}>
           <Text style={styles.label}>{t('roomNumber')}</Text>
           <Text style={styles.value}>
-            {reservationData.roomNo}
+            {reservationData.rooms?.room_number}
           </Text>
         </View>
       </View>
@@ -194,7 +237,7 @@ if (!reservationData) {
         </Text>
 
         <Text style={styles.amountValue}>
-          ₹{reservationData.payment.amount}
+          ₹{reservationData.total_amount || 0}
         </Text>
       </View>
 
@@ -321,7 +364,7 @@ headerStep: {
   },
 
   amountCard: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     borderRadius: 18,
     padding: 24,
     alignItems: 'center',
@@ -341,7 +384,7 @@ headerStep: {
   },
 
   button: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     height: 60,
     borderRadius: 14,
     flexDirection: 'row',

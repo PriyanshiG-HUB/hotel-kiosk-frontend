@@ -4,13 +4,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
-import { useRoomExtension } from '../../context/RoomExtensionContext';
 import useTranslation from '../../hooks/useTranslation';
-
-export default function RoomExtensionSummaryScreen({ navigation }: any) {
-  const { findBooking, updateBooking } = useBooking();
-  const { roomExtension, setRoomExtension } = useRoomExtension();
+import { extendRoom } from '../../api/roomExtensionApi';
+export default function RoomExtensionSummaryScreen({ navigation, route }: any) {
+  const { roomExtension } = route.params || {};
   const { t } = useTranslation();
   const paymentMethods: {
   id: string;
@@ -27,16 +24,15 @@ export default function RoomExtensionSummaryScreen({ navigation }: any) {
 ];
   const [selectedMethod, setSelectedMethod] = useState('credit');
 
-const targetBooking = roomExtension.bookingId ? findBooking(roomExtension.bookingId) ?? null : null;
 
   const summaryRows = [
-  { label: t('guest'), value: targetBooking?.guest?.fullName || '—' },
-  { label: t('room'), value: `${targetBooking?.roomNo || '—'} • ${targetBooking?.roomType || '—'}` },
+  { label: t('guest'), value: roomExtension.guestName || '—' },
+  { label: t('room'), value: `${roomExtension.roomNumber || '—'} • ${roomExtension.roomType || '—'}` },
   { label: t('extraNights'), value: `${roomExtension.extraNights ?? 0}` },
   { label: t('originalCheckOut'), value: roomExtension.originalCheckOut },
   { label: t('newCheckOut'), value: roomExtension.newCheckOut },
-  { label: t('roomCharges'), value: `$${(roomExtension.extraRoomCharge ?? 0).toFixed(2)}` },
-  { label: t('taxes12'), value: `$${(roomExtension.taxes ?? 0).toFixed(2)}` },
+  { label: t('roomCharges'), value: `₹${(roomExtension.extraRoomCharge ?? 0).toFixed(2)}` },
+  { label: t('taxes12'), value: `₹${(roomExtension.taxes ?? 0).toFixed(2)}` },
 ];
 
   const handlePrintReceipt = () => {
@@ -47,40 +43,31 @@ const targetBooking = roomExtension.bookingId ? findBooking(roomExtension.bookin
     Alert.alert(t('receipt'), t('receiptEmailedSuccessfully'));
   };
 
-  const handlePay = () => {
-    // Update the room extension context
-    setRoomExtension({
-      ...roomExtension,
-      paymentMethod: selectedMethod,
-      paymentStatus: true,
-    });
-
+  const handlePay = async () => {
     // Update the booking in the bookings list if we found it
-    if (targetBooking) {
-      const updatedBooking = {
-        ...targetBooking,
-        stay: {
-          ...targetBooking.stay,
-          checkOut: roomExtension.newCheckOut,
-          nights: (targetBooking.stay?.nights ?? 1) + (roomExtension.extraNights ?? 0),
-        },
-        payment: {
-          amount: roomExtension.grandTotal ?? 0,
-          method: selectedMethod,
-          status: true,
-        },
-      };
-      updateBooking(updatedBooking);
-    }
+try {
+  await extendRoom({
+    booking_id: roomExtension.bookingId,
+    new_checkout: roomExtension.newCheckOut,
+    additional_nights: roomExtension.extraNights,
+    additional_amount: roomExtension.grandTotal,
+  });
+} catch (error) {
+  Alert.alert(
+    'Error',
+    'Failed to extend booking'
+  );
+  return;
+}
 
     navigation.navigate('ThankYou', {
       title: t('stayExtended'),
       message: t('stayExtendedMessage', { nights: roomExtension.extraNights, nightLabel: roomExtension.extraNights === 1 ? t('night') : t('nights') }),
       icon: 'moon',
-      iconColor: '#5B4BDB',
+      iconColor: '#1A1A4E',
       bookingId: roomExtension.extensionId,
-      guestName: targetBooking?.guest?.fullName ?? '',
-      roomNumber: targetBooking?.roomNo ?? '',
+      guestName: roomExtension.guestName ?? '',
+      roomNumber: roomExtension.roomNumber ?? '',
       extraInfo: `${t('newCheckOut')}: ${roomExtension.newCheckOut}`,
       showRating: true,
       clearBooking: false,
@@ -106,7 +93,7 @@ const targetBooking = roomExtension.bookingId ? findBooking(roomExtension.bookin
         {/* Amount Banner */}
         <View style={styles.amountBanner}>
           <Text style={styles.amountLabel}>{t('totalAmountDue')}</Text>
-          <Text style={styles.amountValue}>${(roomExtension.grandTotal ?? 0).toFixed(2)}</Text>
+          <Text style={styles.amountValue}>₹{(roomExtension.grandTotal ?? 0).toFixed(2)}</Text>
           <View style={styles.extIdBadge}>
             <Text style={styles.extIdText}>{t('extensionId')}: {roomExtension.extensionId}</Text>
           </View>
@@ -126,7 +113,7 @@ const targetBooking = roomExtension.bookingId ? findBooking(roomExtension.bookin
           ))}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>{t('grandTotal')}</Text>
-            <Text style={styles.totalValue}>${(roomExtension.grandTotal ?? 0).toFixed(2)}</Text>
+            <Text style={styles.totalValue}>₹{(roomExtension.grandTotal ?? 0).toFixed(2)}</Text>
           </View>
         </View>
 
@@ -143,7 +130,7 @@ const targetBooking = roomExtension.bookingId ? findBooking(roomExtension.bookin
               <Ionicons
                 name={method.icon}
                 size={24}
-                color={selectedMethod === method.id ? '#5B4BDB' : '#888'}
+                color={selectedMethod === method.id ? '#1A1A4E' : '#888'}
               />
               <Text style={[styles.methodLabel, selectedMethod === method.id && styles.methodLabelActive]}>
                 {method.label}
@@ -155,11 +142,11 @@ const targetBooking = roomExtension.bookingId ? findBooking(roomExtension.bookin
         {/* Receipt Buttons */}
         <View style={styles.receiptRow}>
           <TouchableOpacity style={styles.receiptBtn} onPress={handlePrintReceipt}>
-            <Ionicons name="print" size={18} color="#5B4BDB" />
+            <Ionicons name="print" size={18} color="#1A1A4E" />
             <Text style={styles.receiptBtnText}>{t('printReceipt')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.receiptBtn} onPress={handleEmailReceipt}>
-            <Ionicons name="mail" size={18} color="#5B4BDB" />
+            <Ionicons name="mail" size={18} color="#1A1A4E" />
             <Text style={styles.receiptBtnText}>{t('emailReceipt')}</Text>
           </TouchableOpacity>
         </View>
@@ -213,10 +200,10 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     paddingTop: 14, marginTop: 6,
-    borderTopWidth: 2, borderTopColor: '#5B4BDB',
+    borderTopWidth: 2, borderTopColor: '#1A1A4E',
   },
   totalLabel: { fontSize: 16, fontWeight: '800', color: '#222' },
-  totalValue: { fontSize: 20, fontWeight: '800', color: '#5B4BDB' },
+  totalValue: { fontSize: 20, fontWeight: '800', color: '#1A1A4E' },
   paymentTitle: { fontSize: 16, fontWeight: '700', color: '#222', marginBottom: 14 },
   methodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   methodCard: {
@@ -224,30 +211,30 @@ const styles = StyleSheet.create({
     paddingVertical: 16, alignItems: 'center',
     borderWidth: 2, borderColor: '#E0E0EC', elevation: 2,
   },
-  methodCardActive: { borderColor: '#5B4BDB', backgroundColor: '#F0EEFF' },
+  methodCardActive: { borderColor: '#1A1A4E', backgroundColor: '#F0EEFF' },
   methodLabel: { fontSize: 11, color: '#888', marginTop: 6, fontWeight: '500', textAlign: 'center' },
-  methodLabelActive: { color: '#5B4BDB', fontWeight: '700' },
+  methodLabelActive: { color: '#1A1A4E', fontWeight: '700' },
   receiptRow: {
     flexDirection: 'row', gap: 12, marginBottom: 8,
   },
   receiptBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, height: 46, borderRadius: 10,
-    borderWidth: 2, borderColor: '#5B4BDB',
+    borderWidth: 2, borderColor: '#1A1A4E',
     backgroundColor: '#fff', elevation: 2,
   },
-  receiptBtnText: { color: '#5B4BDB', fontWeight: '600', fontSize: 13 },
+  receiptBtnText: { color: '#1A1A4E', fontWeight: '600', fontSize: 13 },
   footer: {
     flexDirection: 'row', padding: 16, backgroundColor: '#fff',
     borderTopWidth: 1, borderTopColor: '#E8E8F0', gap: 12,
   },
   backButton: {
-    flex: 1, height: 52, borderRadius: 12, borderWidth: 2, borderColor: '#5B4BDB',
+    flex: 1, height: 52, borderRadius: 12, borderWidth: 2, borderColor: '#1A1A4E',
     justifyContent: 'center', alignItems: 'center',
   },
-  backButtonText: { color: '#5B4BDB', fontWeight: '700', fontSize: 15 },
+  backButtonText: { color: '#1A1A4E', fontWeight: '700', fontSize: 15 },
   payButton: {
-    flex: 2, height: 52, borderRadius: 12, backgroundColor: '#5B4BDB',
+    flex: 2, height: 52, borderRadius: 12, backgroundColor: '#1A1A4E',
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
   },
   payButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },

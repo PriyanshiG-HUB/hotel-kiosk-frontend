@@ -9,21 +9,38 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
 export default function RoomAssignedScreen({
-  navigation,
+  navigation,route
 }: any) {
-  const { booking } = useBooking();
+  const {
+  bookingData,
+  verifiedIdType,
+  paymentMethod,
+  paymentAmount,
+} = route.params || {};
+
+const guest = bookingData?.guests || {};
+const room = bookingData?.rooms || {};
   const { t } = useTranslation();
 
-  const roomNumber = booking.roomNo || '512';
+  const roomNumber = room.room_number || '512';
   const roomType =
-  booking.roomType || t('notAvailable');
+  room.room_type || t('notAvailable');
 
 const guestName =
-  booking.guest.fullName || t('guest');
-
+  guest.full_name || t('guest');
+const nights =
+  bookingData?.check_in_date &&
+  bookingData?.check_out_date
+    ? Math.ceil(
+        (
+          new Date(bookingData.check_out_date).getTime() -
+          new Date(bookingData.check_in_date).getTime()
+        ) /
+          (1000 * 60 * 60 * 24)
+      )
+    : null;
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -33,15 +50,19 @@ const guestName =
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
-  {t('roomAssigned')}
-</Text>
+            {t('roomAssigned')}
+          </Text>
 
-<Text style={styles.headerStep}>
-  {t('step6Of8')}
-</Text>
+          <Text style={styles.headerStep}>
+            {t('step6Of8')}
+          </Text>
         </View>
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Scrollable Content */}
@@ -96,7 +117,7 @@ const guestName =
             </Text>
 
             <Text style={styles.infoValue}>
-              {booking.stay.checkIn || t('notAvailable')}
+              {bookingData.check_in_date || t('notAvailable')}
             </Text>
           </View>
 
@@ -106,7 +127,7 @@ const guestName =
             </Text>
 
             <Text style={styles.infoValue}>
-              {booking.stay.checkOut || t('notAvailable')}
+              {bookingData.check_out_date || t('notAvailable')}
             </Text>
           </View>
 
@@ -116,7 +137,7 @@ const guestName =
             </Text>
 
             <Text style={styles.infoValue}>
-              {booking.stay.nights || t('notAvailable')}
+              {nights ?? t('notAvailable')}
             </Text>
           </View>
         </View>
@@ -126,7 +147,7 @@ const guestName =
           <Ionicons
             name="information-circle"
             size={30}
-            color="#5B4BDB"
+            color="#1A1A4E"
           />
 
           <Text style={styles.noteTitle}>
@@ -144,7 +165,12 @@ const guestName =
         <TouchableOpacity
           style={styles.continueButton}
           onPress={() =>
-            navigation.navigate('KeyDelivery')
+            navigation.navigate('KeyDelivery', {
+  bookingData,
+  verifiedIdType,
+  paymentMethod,
+  paymentAmount,
+})
           }
         >
           <Text style={styles.continueButtonText}>
@@ -169,6 +195,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  backBtn: { width: 40, alignItems: 'flex-start' },
 
   headerCenter: {
     flex: 1,
@@ -232,7 +259,7 @@ const styles = StyleSheet.create({
   },
 
   roomCard: {
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     borderRadius: 20,
     paddingVertical: 24,
     paddingHorizontal: 24,
@@ -326,7 +353,7 @@ const styles = StyleSheet.create({
   continueButton: {
     height: 54,
     borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },

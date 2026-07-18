@@ -19,7 +19,7 @@ export default function HelpConfirmationScreen({ navigation }: any) {
     title: t('requestSent'),
     message: t('staffWillAssistShortly'),
     icon: 'headset',
-    iconColor: '#5B4BDB',
+    iconColor: '#1A1A4E',
     bookingId: helpRequest.requestId,
     guestName: helpRequest.guestName,
     roomNumber: helpRequest.roomNumber,
@@ -69,10 +69,14 @@ export default function HelpConfirmationScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#1A1A4E" barStyle="light-content" />
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{t('requestConfirmed')}</Text>
           <Text style={styles.headerSubtitle}>{t('helpIsOnTheWay')}</Text>
         </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
@@ -95,7 +99,7 @@ export default function HelpConfirmationScreen({ navigation }: any) {
             <View key={row.label}>
               <View style={styles.infoRow}>
                 <View style={styles.infoLeft}>
-                  <Ionicons name={row.icon} size={18} color="#5B4BDB" />
+                  <Ionicons name={row.icon} size={18} color="#1A1A4E" />
                   <Text style={styles.infoLabel}>{row.label}</Text>
                 </View>
                 <Text style={styles.infoValue}>{row.value || t('notAvailable')}</Text>
@@ -131,6 +135,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  backBtn: { width: 40, alignItems: 'flex-start' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 1 },
   headerSubtitle: { color: '#aaa', fontSize: 12, marginTop: 2 },
@@ -205,7 +210,7 @@ const styles = StyleSheet.create({
   doneButton: {
     height: 54,
     borderRadius: 12,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

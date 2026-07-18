@@ -9,13 +9,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useBooking } from '../../context/BookingContext';
 import useTranslation from '../../hooks/useTranslation';
+
 export default function KeyDeliveryScreen({
   navigation,
+  route
 }: any) {
-  const { booking } = useBooking();
   const { t } = useTranslation();
+  const {
+  bookingData,
+  verifiedIdType,
+  paymentMethod,
+  paymentAmount,
+} = route.params || {};
+
+const room = bookingData?.rooms || {};
   const [selectedOption, setSelectedOption] =
     useState<string | null>(null);
 
@@ -43,7 +51,13 @@ export default function KeyDeliveryScreen({
   const handleContinue = () => {
     if (!selectedOption) return;
 
-    navigation.navigate('RoomConfirmation');
+    navigation.navigate('RoomConfirmation',{
+  bookingData,
+  verifiedIdType,
+  paymentMethod,
+  paymentAmount,
+  keyType: selectedOption,
+});
   };
 
   return (
@@ -55,12 +69,18 @@ export default function KeyDeliveryScreen({
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
             {t('keyDelivery')}
           </Text>
-          <Text style={styles.headerStep}>{t('step7Of8')}</Text>
+          <Text style={styles.headerStep}>
+            {t('step7Of8')}
+          </Text>
         </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
@@ -83,7 +103,7 @@ export default function KeyDeliveryScreen({
           </Text>
 
           <Text style={styles.heroSubtitle}>
-            {t('room')} {booking.roomNo || t('notAvailable')}
+            {t('room')} {room.room_number || t('notAvailable')}
           </Text>
         </View>
 
@@ -107,7 +127,7 @@ export default function KeyDeliveryScreen({
                 size={28}
                 color={
                   selectedOption === option.id
-                    ? '#5B4BDB'
+                    ? '#1A1A4E'
                     : '#666'
                 }
               />
@@ -168,12 +188,14 @@ const styles = StyleSheet.create({
 
   header: {
     backgroundColor: '#1A1A4E',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    alignItems: 'center',
   },
-
+  backBtn: { width: 40, alignItems: 'flex-start' },
   headerCenter: {
+    flex: 1,
     alignItems: 'center',
   },
 
@@ -200,7 +222,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -228,7 +250,7 @@ const styles = StyleSheet.create({
   },
 
   selectedCard: {
-    borderColor: '#5B4BDB',
+    borderColor: '#1A1A4E',
     backgroundColor: '#F7F5FF',
   },
 
@@ -264,7 +286,7 @@ const styles = StyleSheet.create({
   continueButton: {
     height: 54,
     borderRadius: 10,
-    backgroundColor: '#5B4BDB',
+    backgroundColor: '#1A1A4E',
     justifyContent: 'center',
     alignItems: 'center',
   },

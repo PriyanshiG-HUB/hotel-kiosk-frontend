@@ -1,4 +1,4 @@
-//import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Animated,
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,33 +18,62 @@ const HomeScreen = ({ navigation }: any) => {
   const { t, setLanguage, language } =
     useTranslation();
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim1 = useRef(new Animated.Value(50)).current;
+  const slideAnim2 = useRef(new Animated.Value(50)).current;
+  const slideAnim3 = useRef(new Animated.Value(50)).current;
+  const slideAnim4 = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: false,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 6,
+        tension: 35,
+        useNativeDriver: false,
+      }),
+      Animated.stagger(100, [
+        Animated.spring(slideAnim1, { toValue: 0, friction: 6, tension: 40, useNativeDriver: false }),
+        Animated.spring(slideAnim2, { toValue: 0, friction: 6, tension: 40, useNativeDriver: false }),
+        Animated.spring(slideAnim3, { toValue: 0, friction: 6, tension: 40, useNativeDriver: false }),
+        Animated.spring(slideAnim4, { toValue: 0, friction: 6, tension: 40, useNativeDriver: false }),
+      ])
+    ]).start();
+  }, []);
+
   const menuItems = [
 {
 title:'checkIn',
 subtitle:'startStay',
 icon:'bed',
-color:'#6C63FF',
+color:'#1A1A4E',
 screen:'CheckInOptions',
 },
 {
 title:'checkOut',
 subtitle:'completeCheckout',
 icon:'log-out',
-color:'#5B4BDB',
+color:'#1A1A4E',
 screen:'CheckoutSummary',
 },
 {
 title:'roomExtension',
 subtitle:'extendBooking',
 icon:'time',
-color:'#7C4DFF',
+color:'#1A1A4E',
 screen:'RoomExtension',
 },
 {
 title:'visitorManagement',
 subtitle:'registerVisitors',
 icon:'people',
-color:'#6A5AE0',
+color:'#D4AF37',
 screen:'VisitorManagement',
 },
 ];
@@ -71,12 +101,12 @@ screen:'VisitorManagement',
     <SafeAreaView style={styles.container}>
 
       <StatusBar
-        backgroundColor="#5B4BDB"
+        backgroundColor="#1A1A4E"
         barStyle="light-content"
       />
 
       <LinearGradient
-        colors={['#4533C6','#5B4BDB','#7C67F8','#9B7BFF']}
+        colors={['#0F0C20','#1A1A4E','#D4AF37','#C5A880']}
         style={styles.gradient}
       >
 
@@ -87,27 +117,29 @@ screen:'VisitorManagement',
 
           {/* LOGO */}
 
-          <View style={styles.logoContainer}>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
+            <View style={styles.logoContainer}>
 
-            <View style={styles.logoCircle}>
+              <View style={styles.logoCircle}>
 
-              <Ionicons
-                name="business"
-                size={60}
-                color="#5B4BDB"
-              />
+                <Ionicons
+                  name="business"
+                  size={60}
+                  color="#1A1A4E"
+                />
+
+              </View>
+
+              <Text style={styles.hotelName}>
+                ROYAL INN
+              </Text>
+
+              <Text style={styles.hotelSubtitle}>
+                {t('hotelKiosk')}
+              </Text>
 
             </View>
-
-            <Text style={styles.hotelName}>
-              ROYAL INN
-            </Text>
-
-            <Text style={styles.hotelSubtitle}>
-  {t('hotelKiosk')}
-</Text>
-
-          </View>
+          </Animated.View>
 
           {/* FEATURES */}
 
@@ -123,7 +155,7 @@ screen:'VisitorManagement',
                 <Ionicons
                   name={item.icon as any}
                   size={26}
-                  color="#5B4BDB"
+                  color="#1A1A4E"
                 />
 
                 <Text style={styles.featureText}>
@@ -149,47 +181,51 @@ screen:'VisitorManagement',
           {/* MENU */}
 
           <View style={styles.menuContainer}>
-            {menuItems.map((item) => (
-  <TouchableOpacity
-    key={item.screen}
-    activeOpacity={0.75}
-    style={styles.menuCard}
-    onPress={() => navigation.navigate(item.screen)}
-  >
-    <View
-      style={[
-        styles.iconContainer,
-        {
-          backgroundColor: item.color,
-        },
-      ]}
-    >
-      <Ionicons
-        name={item.icon as any}
-        size={34}
-        color="#fff"
-      />
-    </View>
+            {menuItems.map((item, index) => {
+              const slideAnims = [slideAnim1, slideAnim2, slideAnim3, slideAnim4];
+              const slideAnim = slideAnims[index] || slideAnim1;
+              return (
+                <Animated.View key={item.screen} style={{ transform: [{ translateY: slideAnim }] }}>
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    style={styles.menuCard}
+                    onPress={() => navigation.navigate(item.screen)}
+                  >
+                    <View
+                      style={[
+                        styles.iconContainer,
+                        {
+                          backgroundColor: item.color,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={34}
+                        color="#fff"
+                      />
+                    </View>
 
-    <View style={styles.menuTextContainer}>
-      <Text style={styles.menuTitle}>
-        {t(item.title)}
-      </Text>
+                    <View style={styles.menuTextContainer}>
+                      <Text style={styles.menuTitle}>
+                        {t(item.title)}
+                      </Text>
 
-      <Text style={styles.menuDescription}>
-        {t(item.subtitle)}
-      </Text>
-    </View>
+                      <Text style={styles.menuDescription}>
+                        {t(item.subtitle)}
+                      </Text>
+                    </View>
 
-    <Ionicons
-      name="chevron-forward-circle"
-      size={32}
-      color="#5B4BDB"
-    />
-  </TouchableOpacity>
-))}
-
-</View>
+                    <Ionicons
+                      name="chevron-forward-circle"
+                      size={32}
+                      color="#1A1A4E"
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </View>
 
 {/* NEED HELP */}
 
@@ -239,7 +275,7 @@ screen:'VisitorManagement',
       <Ionicons
         name="qr-code"
         size={34}
-        color="#5B4BDB"
+        color="#1A1A4E"
       />
       <Text style={styles.hardwareText}>
         {t('qrScanner')}
@@ -250,7 +286,7 @@ screen:'VisitorManagement',
       <Ionicons
         name="print"
         size={34}
-        color="#5B4BDB"
+        color="#1A1A4E"
       />
       <Text style={styles.hardwareText}>
         {t('receiptPrinter')}
@@ -261,7 +297,7 @@ screen:'VisitorManagement',
       <Ionicons
         name="card"
         size={34}
-        color="#5B4BDB"
+        color="#1A1A4E"
       />
       <Text style={styles.hardwareText}>
         {t('cardReader')}
@@ -482,7 +518,7 @@ languageButton: {
 },
 
 languageText: {
-  color: '#5B4BDB',
+  color: '#1A1A4E',
   fontWeight: '700',
   fontSize: 14,
 },
@@ -541,6 +577,6 @@ footer: {
   opacity: 0.9,
 },
 activeLanguageButton: {
-  backgroundColor: '#5B4BDB',
+  backgroundColor: '#1A1A4E',
 },
 });
