@@ -4,6 +4,8 @@ export interface CreateSessionParams {
   bookingId?: string;
   guestId?: string;
   guestName?: string;
+  /** Document number entered by guest in earlier form step (e.g. Aadhaar number) */
+  enteredDocumentNumber?: string;
   selectedIdType: string;
   issuingCountry: string;
   consentGiven: boolean;
@@ -29,6 +31,8 @@ export interface VerificationSessionResponse {
     gender?: string;
     confidence: number;
     isExpired: boolean;
+    /** Aadhaar-specific: comparison of OCR number vs form-entered number */
+    aadhaarNumberMatch?: 'match' | 'mismatch' | 'unable_to_verify';
   };
   correctedFields?: any;
   authenticity?: {

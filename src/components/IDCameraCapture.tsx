@@ -402,8 +402,9 @@ const styles = StyleSheet.create({
   },
   videoWrapper: {
     width: '100%',
-    height: 280,
+    aspectRatio: 1.586, // Standard ID card aspect ratio (CR-80: 85.6mm × 54mm)
     backgroundColor: '#000',
+    maxHeight: 360,
   },
   alignGuideText: {
     color: '#35C759',
